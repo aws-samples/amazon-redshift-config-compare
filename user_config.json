@@ -1,0 +1,24 @@
+{
+	"snapshot_id": "N/A",
+	"snapshot_account_id": "N/A",
+	"database_name": "dev",
+	"master_user_name": "awsuser",
+	"auto_pause": true,
+	"global_parameter_group_config_s3_path": "N/A",
+	"ddl_and_copy_script_s3_path": "s3://event-driven-app-with-lambda-redshift/whatif/test-cases/ddl.sql",
+	"sequential_queries_and_load_s3_path": "s3://event-driven-app-with-lambda-redshift/whatif/test-cases/test_queries.sql",
+	"concurrent_user_queries_and_load_s3_path": "s3://event-driven-app-with-lambda-redshift/whatif/test-cases/test_queries.sql",
+	"configurations": [{
+			"user_friendly_name_suffix": "N/A",
+			"node_type": "ra3.4xlarge",
+			"number_of_nodes": "4",
+			"wlm_config_s3_path": "s3://event-driven-app-with-lambda-redshift/whatif/test-cases/custom-wlm.json"
+		},
+		{
+			"user_friendly_name_suffix": "N/A",
+			"node_type": "dc2.8xlarge",
+			"number_of_nodes": "2",
+			"wlm_config_s3_path": "N/A"
+		}
+	]
+}

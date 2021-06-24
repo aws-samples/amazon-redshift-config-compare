@@ -1,0 +1,538 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Amazon Redshift What If Analysis'
+
+Parameters:
+  ConfigJsonS3Path:
+    Description: S3 location uri for configuration json file
+    Type: String
+    Default: s3://your-s3-bucket/prefix/user_config.json
+  VPC:
+    Description: "vpc_id where source redshift clusters will be created"
+    Type: AWS::EC2::VPC::Id
+  SubnetId:
+    Description: Subnet ID where source redshift clusters will be created
+    Type: AWS::EC2::Subnet::Id
+  ClusterIdentifierPrefix:
+    Description: Redshift cluster identifier prefix
+    Type: String
+    Default: redshift-config
+  OnPremisesCIDR:
+    Description: IP range (CIDR notation) for your existing infrastructure to access the target and replica redshift clusters
+    Type: String
+    Default: 10.0.0.0/8
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+  PreExistingS3BucketToGrantRedshiftAccess:
+    Description: The existing Amazon S3 bucket in same AWS Region, which can be accessed by Redshift
+    Type: String
+    Default: 'redshift-downloads'
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: Configurations from Extract CloudFormation
+        Parameters:
+          - ConfigJsonS3Path
+          - VPC
+          - SubnetId
+          - OnPremisesCIDR
+          - PreExistingS3BucketToGrantRedshiftAccess
+Conditions:
+  IsPreExistingS3Bucket:
+    Fn::Not:
+      - Fn::Equals:
+          - 'N/A'
+          - Ref: PreExistingS3BucketToGrantRedshiftAccess
+Resources:
+  RedshiftWhatIfBucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Name
+          Value:
+            !Join [
+              '-',
+              [
+                !Ref 'AWS::StackName',
+                'RedshiftWhatIfBucket',
+              ],
+            ]
+
+  SecretRedshiftMasterUser:
+    Type: "AWS::SecretsManager::Secret"
+    Properties:
+      Description: "Secrets Manager to store Redshift master user credentials"
+      GenerateSecretString:
+        SecretStringTemplate: !Sub
+        - '{"username": "${MasterUsername}"}'
+        - {MasterUsername: awsuser}
+        GenerateStringKey: "password"
+        PasswordLength: 32
+        ExcludePunctuation: true
+
+  RedshiftWhatIfIamPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: RedshiftWhatIfBucketAccess
+            Effect: Allow
+            Action:
+              - s3:GetBucketLocation
+              - s3:GetObject
+              - s3:ListMultipartUploadParts
+              - s3:ListBucket
+              - s3:ListBucketMultipartUploads
+              - s3:PutObject
+            Resource:
+              - !Sub "arn:aws:s3:::${RedshiftWhatIfBucket}"
+              - !Sub "arn:aws:s3:::${RedshiftWhatIfBucket}/*"
+              - !Sub
+                - arn:aws:s3:::${RedshiftWhatIfConfigJsonObject}
+                - {RedshiftWhatIfConfigJsonObject: !Select [1, !Split ["//", !Ref ConfigJsonS3Path]]}
+          - Sid: RedshiftWhatIfExternalBucketAccess
+            Effect: Allow
+            Action:
+              - s3:GetBucketLocation
+              - s3:GetObject
+              - s3:ListMultipartUploadParts
+              - s3:ListBucket
+              - s3:ListBucketMultipartUploads
+            Resource:
+              - arn:aws:s3:::event-driven-app-with-lambda-redshift/*
+              - !Sub
+                - arn:aws:s3:::${RedshiftWhatIfConfigJsonBucket}/*
+                - {RedshiftWhatIfConfigJsonBucket: !Select [2, !Split ["/", !Ref ConfigJsonS3Path]]}
+              - !Sub
+                - arn:aws:s3:::${RedshiftWhatIfConfigJsonBucket}
+                - {RedshiftWhatIfConfigJsonBucket: !Select [2, !Split ["/", !Ref ConfigJsonS3Path]]}
+              - !If
+                - IsPreExistingS3Bucket
+                - !Sub "arn:aws:s3:::${PreExistingS3BucketToGrantRedshiftAccess}"
+                - !Ref 'AWS::NoValue'
+              - !If
+                - IsPreExistingS3Bucket
+                - !Sub "arn:aws:s3:::${PreExistingS3BucketToGrantRedshiftAccess}/*"
+                - !Ref 'AWS::NoValue'
+  RedshiftIAMRole:
+    Type: AWS::IAM::Role
+    DependsOn: RedshiftWhatIfBucket
+    Properties:
+      Description : IAM Role for RA3 Redshift cluster to access resources
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - redshift.amazonaws.com
+        Version: '2012-10-17'
+      Path: "/"
+      ManagedPolicyArns:
+            - !Ref RedshiftWhatIfIamPolicy
+      Policies:
+        - PolicyName: WhatIfIAMPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - glue:CreateDatabase
+                  - glue:DeleteDatabase
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:UpdateDatabase
+                  - glue:CreateTable
+                  - glue:DeleteTable
+                  - glue:BatchDeleteTable
+                  - glue:UpdateTable
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:BatchCreatePartition
+                  - glue:CreatePartition
+                  - glue:DeletePartition
+                  - glue:BatchDeletePartition
+                  - glue:UpdatePartition
+                  - glue:GetPartition
+                  - glue:GetPartitions
+                  - glue:BatchGetPartition
+                Resource: '*'
+  LambdaIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+        Version: '2012-10-17'
+      Path: "/"
+      ManagedPolicyArns:
+            - !Ref RedshiftWhatIfIamPolicy
+      Policies:
+        - PolicyName: WhatIfIAMPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                  - ec2:Describe*
+                  - logs:*
+                  - redshift:*
+                  - redshift-data:*
+                Resource:
+                  - '*'
+              - Effect: Allow
+                Action:
+                  - iam:CreateServiceLinkedRole
+                Resource:
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/redshift.amazonaws.com/AWSServiceRoleForRedshift"
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetResourcePolicy
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                  - secretsmanager:ListSecretVersionIds
+                  - secretsmanager:ListSecrets
+                Resource: !Ref SecretRedshiftMasterUser
+
+  RedshiftWhatIfLambda:
+    Type: AWS::Lambda::Function
+    DependsOn: CopyLambdaFunctionCode
+    Properties:
+      Description: RedshiftWhatIfLambda
+      Handler: RedshiftWhatIfLambda.handler
+      Runtime: python3.7
+      Role: !GetAtt 'LambdaIamRole.Arn'
+      Timeout: 300
+      Code:
+        S3Bucket: !Ref RedshiftWhatIfBucket
+        S3Key: 'whatif/RedshiftWhatIfLambda.py.zip'
+
+
+  IamRoleRedshiftWhatIfStepFunction:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            -
+              Effect: Allow
+              Principal:
+                Service:
+                  - states.amazonaws.com
+              Action:
+                - sts:AssumeRole
+      Path: /
+      Policies:
+          -
+            PolicyName: StepFunctionETLPolicy
+            PolicyDocument :
+              Version: 2012-10-17
+              Statement:
+                -
+                  Effect: "Allow"
+                  Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - lambda:InvokeFunction
+                  Resource: "*"
+
+  RedshiftWhatIfStepFunction:
+    Type: "AWS::StepFunctions::StateMachine"
+    DependsOn: CopyStepFunctionCode
+    Properties:
+      DefinitionS3Location:
+        Bucket: !Ref RedshiftWhatIfBucket
+        Key: 'whatif/RedshiftWhatIfStepFunction.json'
+      DefinitionSubstitutions:
+        FunctionArn: !GetAtt RedshiftWhatIfLambda.Arn
+        ClusterIdentifierPrefix: !Ref ClusterIdentifierPrefix
+      RoleArn: !GetAtt IamRoleRedshiftWhatIfStepFunction.Arn
+
+  LambdaStartWhatIfIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description : LambdaStartWhatIfIAMRole
+      AssumeRolePolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            -
+              Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action:
+                - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+            - !Ref RedshiftWhatIfIamPolicy
+      Policies:
+          -
+            PolicyName: LambdaInvokePolicy
+            PolicyDocument :
+              Version: 2012-10-17
+              Statement:
+                -
+                  Effect: "Allow"
+                  Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - states:StartExecution
+                  Resource: "*"
+                -
+                  Effect: "Allow"
+                  Action:
+                  - redshift:DeleteCluster
+                  Resource: "*"
+
+  LambdaStartWhatIf:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: lambda to add iam role with access on simple replay S3 bucket to source redshift cluster
+      Handler: index.handler
+      Runtime: python3.6
+      Role: !GetAtt 'LambdaStartWhatIfIAMRole.Arn'
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import boto3
+          import botocore.exceptions as be
+          import traceback
+          import json
+          import cfnresponse
+
+          def handler(event, context):
+              print(event)
+              client = boto3.client('redshift')
+              config_file_s3_path = event['ResourceProperties'].get('config_json_s3_path')
+              config = get_json_config_from_s3(config_file_s3_path)
+
+              res = {}
+              if event['RequestType'] != 'Delete':
+                  try:
+                      config["s3_bucket_name"] = event['ResourceProperties'].get('s3_bucket_name')
+                      config["redshift_iam_role"] = event['ResourceProperties'].get('redshift_iam_role')
+                      config["security_group_id"] = event['ResourceProperties'].get('security_group_id')
+                      config["subnet_group"] = event['ResourceProperties'].get('subnet_group')
+                      config["secrets_manager_arn"] = event['ResourceProperties'].get('secrets_manager_arn')
+
+                      if config.get('parameter_group_config_s3_path') is None or config.get('parameter_group_config_s3_path') == "N/A":
+                          config["parameter_group_config_s3_path"] = "s3://" + event['ResourceProperties'].get( 's3_bucket_name') + "/whatif/parameter_group_config.json"
+
+                      config_file_s3_path = s3_put_config_file(config, config_file_s3_path)
+                      step_function_input = {"config_json_s3_path": config_file_s3_path}
+
+                      response = boto3.client('stepfunctions').start_execution(
+                          stateMachineArn=event['ResourceProperties'].get('step_function_arn'),
+                          input=json.dumps(step_function_input)
+                      )
+                      print(response)
+                  except:
+                      print(traceback.format_exc())
+                      cfnresponse.send(event, context, cfnresponse.FAILED, input)
+                      raise
+                  print(response)
+              cfnresponse.send(event, context, cfnresponse.SUCCESS, res)
+
+
+          def get_json_config_from_s3(script_s3_path):
+              bucket, key = script_s3_path.replace("s3://", "").split("/", 1)
+              obj = boto3.client('s3').get_object(Bucket=bucket, Key=key)
+              return json.loads(obj['Body'].read().decode('utf-8'))
+
+
+          def s3_put_config_file(dict_obj, s3_path):
+              s3 = boto3.client('s3')
+              bucket, key = s3_path.replace("s3://", "").split("/", 1)
+              s3.put_object(Body=json.dumps(dict_obj), Bucket=bucket, Key=key)
+              return s3_path
+
+
+          def get_clusters(client, cluster_identifier):
+              try:
+                  cluster_identifiers = []
+                  for cluster in client.describe_clusters().get('Clusters'):
+                      if cluster_identifier in cluster.get('ClusterIdentifier'):
+                          cluster_identifiers.append(cluster.get('ClusterIdentifier'))
+                  return cluster_identifiers
+
+              except be.ClientError as e:
+                  msg = e.response['Error']['Code']
+                  if msg == 'ClusterNotFound':
+                      status = 'nonExistent'
+                  else:
+                      raise
+              return status
+
+
+  StartWhatIf:
+    Type: Custom::LambdaStartWhatIf
+    Properties:
+      ServiceToken: !GetAtt [LambdaStartWhatIf, Arn]
+      config_json_s3_path: !Ref ConfigJsonS3Path
+      s3_bucket_name: !Ref RedshiftWhatIfBucket
+      redshift_iam_role: !GetAtt RedshiftIAMRole.Arn
+      security_group_id: !Ref SecurityGroupRedshift
+      subnet_group: !Ref RedshiftClusterSubnetGroup
+      step_function_arn: !Ref RedshiftWhatIfStepFunction
+      secrets_manager_arn: !Ref SecretRedshiftMasterUser
+
+  LambdaFunctionS3Copy:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Description: lambda to copy files
+      Handler: index.handler
+      Runtime: python3.6
+      Role: !GetAtt 'LambdaStartWhatIfIAMRole.Arn'
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import cfnresponse
+          import logging
+
+          logging.basicConfig()
+          logger = logging.getLogger(__name__)
+          logger.setLevel(logging.INFO)
+
+          def handler(event, context):
+              logger.info(json.dumps(event))
+              s3 = boto3.client('s3')
+              target_s3_bucket_name = event['ResourceProperties']['target_s3_bucket_name']
+              source_file_s3_path = event['ResourceProperties']['source_file_s3_path']
+              source_s3_bucket_name, key = source_file_s3_path.replace("s3://", "").split("/", 1)
+
+              if event['RequestType'] == 'Delete':
+                  try:
+                      s3.delete_object(Bucket=target_s3_bucket_name, Key=key)
+                      s3.delete_object(Bucket=target_s3_bucket_name, Key=key + '.temp')
+                  except Exception as e:
+                      logger.info(e)
+                  logger.info('Delete Complete')
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Data': 'Delete complete'})
+              else:
+                  try:
+                      s3.delete_object(Bucket=target_s3_bucket_name, Key=key)
+                  except Exception as e:
+                      logger.info(e)
+                  try:
+                      s3.copy_object(Bucket=target_s3_bucket_name, CopySource=source_s3_bucket_name + "/" + key, Key=key)
+                      logger.info('Copy Complete')
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Data': 'Copy complete'})
+
+                  except Exception as e:
+                      logger.error(e)
+                      cfnresponse.send(event, context, cfnresponse.FAILED, {'Data': 'Copy failed'})
+  CopyLambdaFunctionCode:
+    Type: Custom::CopyLambdaFunctionCode
+    Properties:
+      ServiceToken:
+        Fn::GetAtt : [LambdaFunctionS3Copy, Arn]
+      target_s3_bucket_name: !Ref RedshiftWhatIfBucket
+      source_file_s3_path: 's3://event-driven-app-with-lambda-redshift/whatif/RedshiftWhatIfLambda.py.zip'
+
+  CopyStepFunctionCode:
+    Type: Custom::CopyStepFunctionCode
+    Properties:
+      ServiceToken:
+        Fn::GetAtt : [LambdaFunctionS3Copy, Arn]
+      target_s3_bucket_name: !Ref RedshiftWhatIfBucket
+      source_file_s3_path: 's3://event-driven-app-with-lambda-redshift/whatif/RedshiftWhatIfStepFunction.json'
+
+  CopyParameterGroupCode:
+    Type: Custom::CopyParameterGroupCode
+    Properties:
+      ServiceToken:
+        Fn::GetAtt : [LambdaFunctionS3Copy, Arn]
+      target_s3_bucket_name: !Ref RedshiftWhatIfBucket
+      source_file_s3_path: 's3://event-driven-app-with-lambda-redshift/whatif/parameter_group_config.json'
+
+  SecurityGroupRedshift:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'EC2 and Redshift security group'
+      SecurityGroupIngress:
+        - CidrIp: !Ref OnPremisesCIDR
+          Description : Allow inbound access for on prem users on redshift port for the subnet
+          IpProtocol: tcp
+          FromPort: 5439
+          ToPort:  5439
+      VpcId: !Ref VPC
+
+  SecurityGroupSelfReference:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Self Referencing Rule
+      FromPort: -1
+      IpProtocol: -1
+      GroupId: !GetAtt [SecurityGroupRedshift, GroupId]
+      SourceSecurityGroupId: !GetAtt [SecurityGroupRedshift, GroupId]
+      ToPort: -1
+
+  RedshiftClusterSubnetGroup:
+    Type: 'AWS::Redshift::ClusterSubnetGroup'
+    Properties:
+      Description: Cluster subnet group
+      SubnetIds:
+        - !Ref SubnetId
+
+  SagemakerNotebookIAMRole:
+    Type: AWS::IAM::Role
+    Properties :
+      AssumeRolePolicyDocument:
+        Version : 2012-10-17
+        Statement :
+          -
+            Effect : Allow
+            Principal :
+              Service :
+                - sagemaker.amazonaws.com
+            Action :
+              - sts:AssumeRole
+      Path : /
+      ManagedPolicyArns:
+            - !Ref RedshiftWhatIfIamPolicy
+      Policies:
+        - PolicyName: SimpleReplayIAMPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - redshift:GetClusterCredentials
+                Resource:
+                  - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:cluster:${ClusterIdentifierPrefix}*"
+                  - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:dbname:${ClusterIdentifierPrefix}*/*"
+                  - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:dbuser:${ClusterIdentifierPrefix}*/*"
+
+  NotebookInstance:
+    Type: "AWS::SageMaker::NotebookInstance"
+    Properties:
+      InstanceType: "ml.t3.medium"
+      RoleArn: !GetAtt SagemakerNotebookIAMRole.Arn
+      DirectInternetAccess: Disabled
+      DefaultCodeRepository: "https://github.com/aws-samples/amazon-redshift-config-compare"
+      RootAccess: Enabled
+      SecurityGroupIds:
+        - Ref: SecurityGroupRedshift
+      SubnetId: !Ref SubnetId
+      VolumeSizeInGB: 20
