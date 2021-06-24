@@ -1,16 +1,18 @@
 # Automated Evaluation of most optimal Amazon Redshift node configuration
 
-##Introduction
+## Introduction
 Amazon Redshift is a fast, fully managed, widely popular cloud data warehouse offers different node types to accommodate various workloads, and customers can choose among different node types and node count depending on their
 requirements. But sometimes it takes time and efforts from customers to find the most optimal configuration for their workload to meet their price/performance expectations.
 
 In this repository, we are presenting a simple solution leveraging AWS Step Functions and AWS Lambda to run an end-to-end automated test to find the best Redshift configuration based on price/performance expectations. This can be easily deployed using [this CloudFormation template](cf-template.yaml).
 
+## Architecture
 The following architecture diagram highlights the end-to-end solution:  
 ![Architecture Diagram](images/architecture.png)  
 
 As shown in above diagram, we are using AWS Step Functions and AWS Lambda functions to run user provided database scripts in different configurations of their choice. At the end, this process summarizes the metrics from all different configurations to facilitate direct comparison among these configurations.
 
+## Inputs
 Below are the inputs for this process:
 #### 1. A configuration JSON file indicating different Redshift configurations you would like to test:
 The entire process is driven by this configuration JSON file uploaded in S3. It takes the user inputs on what Amazon Redshift configurations you want to test. Here is a [sample](user_config.json)
@@ -27,6 +29,7 @@ This script will be run with multiple user sessions in the new redshift clusters
 #### 5. A configuration JSON file indicating Auto Workload Management parameters, if you use custom Auto WLM: Here is a sample
 This is an optional json configuration, you may not need to change in general. But it allows you to have a custom configurations for your Workload Management settings, if you would like to test using that.  Here is a [sample](test-cases/parameter_group_config.json).
 
+## Auto-Steps
 Steps to perform the analysis:
 
 1. Upload [DDLs](test-cases/ddl.sql) and [SQL scripts](test-cases/test_queries.sql) mentioned in above section into an Amazon S3 bucket.  
