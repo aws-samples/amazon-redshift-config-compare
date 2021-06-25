@@ -10,7 +10,7 @@ Parameters:
     Description: "vpc_id where source redshift clusters will be created"
     Type: AWS::EC2::VPC::Id
   SubnetId:
-    Description: Subnet ID where source redshift clusters will be created
+    Description: Private Subnet ID where source redshift clusters will be created. Please make sure the private subnet is attached to NAT gateway.
     Type: AWS::EC2::Subnet::Id
   ClusterIdentifierPrefix:
     Description: Redshift cluster identifier prefix
