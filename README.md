@@ -1,4 +1,4 @@
-# Automated Evaluation of most optimal Amazon Redshift node configuration
+# Automated evaluation of most optimal Amazon Redshift node configuration
 
 ## Introduction
 Amazon Redshift is a fast, fully managed, widely popular cloud data warehouse offers different node types to accommodate various workloads, and customers can choose among different node types and node count depending on their
