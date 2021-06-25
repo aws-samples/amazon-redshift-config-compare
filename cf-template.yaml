@@ -527,7 +527,7 @@ Resources:
   NotebookInstance:
     Type: "AWS::SageMaker::NotebookInstance"
     Properties:
-      InstanceType: "ml.t3.medium"
+      InstanceType: "ml.t3.large"
       RoleArn: !GetAtt SagemakerNotebookIAMRole.Arn
       DirectInternetAccess: Disabled
       DefaultCodeRepository: "https://github.com/aws-samples/amazon-redshift-config-compare"
