@@ -29,7 +29,7 @@ This script will be run with multiple user sessions in the new redshift clusters
 #### 5. A configuration JSON file indicating Auto Workload Management parameters, if you use custom Auto WLM: Here is a sample
 This is an optional json configuration, you may not need to change in general. But it allows you to have a custom configurations for your Workload Management settings, if you would like to test using that.  Here is a [sample](test-cases/parameter_group_config.json).
 
-## Auto-Steps
+## Steps to follow
 Steps to perform the analysis:
 
 1. Upload [DDLs](test-cases/ddl.sql) and [SQL scripts](test-cases/test_queries.sql) mentioned in above section into an Amazon S3 bucket.  
