@@ -190,11 +190,34 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
+                  - redshift:resumeCluster
+                  - redshift:pauseCluster
+                  - redshift:describeClusters
+                  - redshift:modifyClusterParameterGroup
+                  - redshift:createClusterParameterGroup
+                  - redshift:describeClusterParameters
+                  - redshift:resizeCluster
+                  - redshift:createCluster
+                  - redshift:GetClusterCredentials
+                Resource:
+                  - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:cluster:${ClusterIdentifierPrefix}*"
+                  - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:dbname:${ClusterIdentifierPrefix}*/*"
+                  - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:dbuser:${ClusterIdentifierPrefix}*/*"
+                  - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:parametergroup:${ClusterIdentifierPrefix}*"
+
+              - Effect: Allow
+                Action:
                   - iam:PassRole
                   - ec2:Describe*
-                  - logs:*
-                  - redshift:*
-                  - redshift-data:*
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - redshift:restoreFromClusterSnapshot
+                  - redshift:describeClusterSnapshots
+                  - redshift-data:ExecuteStatement
+                  - redshift-data:ListStatements
+                  - redshift-data:GetStatementResult
+                  - redshift-data:DescribeStatement
                 Resource:
                   - '*'
               - Effect: Allow
@@ -296,11 +319,6 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                   - states:StartExecution
-                  Resource: "*"
-                -
-                  Effect: "Allow"
-                  Action:
-                  - redshift:DeleteCluster
                   Resource: "*"
 
   LambdaStartWhatIf:
@@ -523,7 +541,6 @@ Resources:
                   - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:cluster:${ClusterIdentifierPrefix}*"
                   - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:dbname:${ClusterIdentifierPrefix}*/*"
                   - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:dbuser:${ClusterIdentifierPrefix}*/*"
-
   NotebookInstance:
     Type: "AWS::SageMaker::NotebookInstance"
     Properties:
