@@ -69,7 +69,6 @@ Here is a sample configuration JSON file, used to implement this example use-cas
 
 ```json
 {
-  {
   "SNAPSHOT_ID": "redshift-cluster-manual-snapshot",
   "SNAPSHOT_ACCOUNT_ID": "123456789012",
 
