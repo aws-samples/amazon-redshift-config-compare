@@ -1,0 +1,39 @@
+[
+  {
+    "query_group": [],
+    "query_group_wild_card": 0,
+    "user_group": [],
+    "user_group_wild_card": 0,
+    "concurrency_scaling": "auto",
+    "rules": [
+      {
+        "rule_name": "DiskSpilling",
+        "predicate": [
+          {
+            "metric_name": "query_temp_blocks_to_disk",
+            "operator": ">",
+            "value": 100000
+          }
+        ],
+        "action": "log"
+      },
+      {
+        "rule_name": "QueryRunningMoreThan30min",
+        "predicate": [
+          {
+            "metric_name": "query_execution_time",
+            "operator": ">",
+            "value": 1800
+          }
+        ],
+        "action": "log"
+      }
+    ],
+    "priority": "normal",
+    "queue_type": "auto",
+    "auto_wlm": true
+  },
+  {
+    "short_query_queue": true
+  }
+]

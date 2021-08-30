@@ -1,0 +1,906 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Amazon Redshift What If Analysis'
+
+Parameters:
+  ConfigJsonS3Path:
+    Description: S3 location uri for configuration json file. Please note, This automation would grant full access on your config file's S3 bucket. s3://node_configuration_test_s3_bucket/prefix/user_config.json
+    Type: String
+    Default: s3://your-node-config-compare-bucket/test-cases/user_config.json
+  ClusterIdentifierPrefix:
+    Description: Redshift cluster identifier prefix
+    Type: String
+    Default: rs
+  PreExistingS3BucketToGrantRedshiftAccess:
+    Description: The existing Amazon S3 bucket in same AWS Region, which can be accessed by Redshift. If using Redshift Simple Replay, please input Redshift Audit Logging Bucket Name here
+    Type: String
+    Default: 'redshift-s3bucketredshiftlogging-1eevbb2glj6n4'
+
+  SourceRedshiftClusterKMSKeyARN:
+    Description: KMS key ARN for the source redshift cluster If using encrypted snapshots (arn:aws:kms:region:account:key/xxxxxx-xxxxxx-xxxxxxxxxx)
+    Type: String
+    Default: arn:aws:kms:us-east-1:009858891282:key/cbeb0081-1a47-42ab-9f63-5e5259fdb8e2
+
+  OnPremisesCIDR:
+    Description: IP range (CIDR notation) for your existing infrastructure 10.0.0.0/8
+    Type: String
+    Default: 72.21.0.0/16
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+  VPC:
+    Description: "VPC where all resources would be created"
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-a088c1da
+  SubnetId:
+    Description: Primary Subnet ID where redshift clusters and AWS Batch compute instances will be created
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-67fdc000
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: Configuration Parameters for AWS Resources
+        Parameters:
+          - ConfigJsonS3Path
+          - ClusterIdentifierPrefix
+          - PreExistingS3BucketToGrantRedshiftAccess
+          - SourceRedshiftClusterKMSKeyARN
+          - OnPremisesCIDR
+          - VPC
+          - SubnetId
+Conditions:
+  IsPreExistingS3Bucket:
+    Fn::Not:
+      - Fn::Equals:
+          - 'N/A'
+          - Ref: PreExistingS3BucketToGrantRedshiftAccess
+  EncryptedSourceCluster:
+    !Not [!Equals [!Ref SourceRedshiftClusterKMSKeyARN, "N/A"]]
+
+Mappings:
+  Redshift: # static values related to the redshift cluster. they are also stored in system_config.json file
+    Port:
+      Number: 5439
+    User:
+      Masteruser: awsuser
+    Database:
+      Name: dev
+    SnapshotRetention:
+      Days: 1
+    Accessible:
+      Public: false
+    Password:
+      Length: 32
+  ConfigTesting: # static values related to the configuration testing. they are also stored in system_config.json file
+    S3:
+      ScriptPrefix: 'configurations'
+      DataPrefix: 'data'
+      ExtractPrefix: 'extract'
+      ReplayPrefix: 'replay'
+      DataLocation: 'comparison_stats'
+      ClusterConfigLocation: 'cluster_config'
+      ResultsLocation: 'results'
+      RawResultsLocation: 'raw_results'
+      ParameterGroupConfig: 'parameter_group_config.json'
+      SystemConfig: 'system_config.json'
+      PerformanceTestBootstrapScript: 'performance_test_bootstrap.sh'
+      ExtractBootstrapScript: 'extract_bootstrap.sh'
+      ReplayBootstrapScript: 'replay_bootstrap.sh'
+      PerformanceTestPythonScript: 'redshift-performance-test.py'
+      GatherComparisonStatsScript: 'gather_comparison_stats.sql'
+      PopulateComparisonResultsScript: 'populate_comparison_results.sql'
+      ConfigTestingLambdaScript: 'RedshiftConfigTestingLambda.py.zip'
+      ConfigTestingStepFunctionScript: 'RedshiftConfigTestingStepFunction.json'
+      ExternalPublicBucket: 'redshift-simple-replay-ra3'
+    Pricing:
+      Uri: 'https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonRedshift/current/index.csv'
+      File: 'pricing/redshift_pricing.csv'
+      RemoveHeaderLength: 5
+    ConcurrencyTest:
+      DisableResultCache: true
+      DefaultOutputLimit: 5000
+      MaxNumberOfQueries: 100
+      MaxParallelSessions: 500
+      QueryLabelPrefix: 'redshift-performance-test-concurrency-'
+  Glue:
+    Database:
+      Name: 'redshift_config_comparison'
+  Region:
+    us-west-2:
+      Name: 'US West (Oregon)'
+    us-west-1:
+      Name: 'US West (N. California)'
+    us-gov-west-1:
+      Name: 'AWS GovCloud (US-West)'
+    us-gov-east-1:
+      Name: 'AWS GovCloud (US-East)'
+    us-east-2:
+      Name: 'US East (Ohio)'
+    us-east-1:
+      Name: 'US East (N. Virginia)'
+    sa-east-1:
+      Name: 'South America (São Paulo)'
+    me-south-1:
+      Name: 'Middle East (Bahrain)'
+    eu-west-3:
+      Name: 'Europe (Paris)'
+    eu-west-2:
+      Name: 'Europe (London)'
+    eu-west-1:
+      Name: 'Europe (Ireland)'
+    eu-south-1:
+      Name: 'Europe (Milan)'
+    eu-north-1:
+      Name: 'Europe (Stockholm)'
+    eu-central-1:
+      Name: 'Europe (Frankfurt)'
+    cn-northwest-1:
+      Name: 'China (Ningxia)'
+    cn-north-1:
+      Name: 'China (Beijing)'
+    ca-central-1:
+      Name: 'Canada (Central)'
+    ap-southeast-2:
+      Name: 'Asia Pacific (Sydney)'
+    ap-southeast-1:
+      Name: 'Asia Pacific (Singapore)'
+    ap-south-1:
+      Name: 'Asia Pacific (Mumbai)'
+    ap-northeast-3:
+      Name: 'Asia Pacific (Osaka)'
+    ap-northeast-2:
+      Name: 'Asia Pacific (Seoul)'
+    ap-northeast-1:
+      Name: 'Asia Pacific (Tokyo)'
+    ap-east-1:
+      Name: 'Asia Pacific (Hong Kong)'
+    af-south-1:
+      Name: 'Africa (Cape Town)'
+
+Resources:
+
+  IamRoleGlueCrawler:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - glue.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - !Ref RedshiftBucketAccessIamPolicy
+  GlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: !FindInMap [ Glue, Database, Name]
+        Description: The name of glue database and redshift external schema
+        LocationUri: !Join ['', ['s3://', !Ref RedshiftConfigTestingBucket, '/'] ]
+
+
+  GlueCsvClassifier:
+    Type: 'AWS::Glue::Classifier'
+    Properties:
+      CsvClassifier:
+        AllowSingleColumn: true
+        ContainsHeader: PRESENT
+        DisableValueTrimming: false
+        Delimiter: ','
+        Name: csvclassify
+        QuoteSymbol: '"'
+
+  GlueCrawlerConfigTestingData:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Role: !GetAtt IamRoleGlueCrawler.Arn
+      Classifiers:
+        - !Ref GlueCsvClassifier
+      Description: AWS Glue crawler to crawl source data for initial source
+      DatabaseName: !FindInMap [ Glue, Database, Name]
+      Targets:
+        S3Targets:
+          - Path: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${DataPrefix}/
+            - {DataPrefix: !FindInMap [ ConfigTesting, S3, DataPrefix]}
+      SchemaChangePolicy:
+        UpdateBehavior: "UPDATE_IN_DATABASE"
+        DeleteBehavior: "LOG"
+
+  SecretRedshiftMasterUser:
+    Type: "AWS::SecretsManager::Secret"
+    Properties:
+      Description: "Secrets Manager to store Redshift master user credentials"
+      GenerateSecretString:
+        SecretStringTemplate: !Sub
+        - '{"username": "${MasterUsername}"}'
+        - {MasterUsername: awsuser}
+        GenerateStringKey: "password"
+        PasswordLength: !FindInMap [ Redshift, Password, Length]
+        ExcludePunctuation: true
+
+  RedshiftConfigTestingBucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  SecurityGroupBatchRedshift:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'Batch and Redshift security group'
+      SecurityGroupIngress:
+        - CidrIp: !Ref OnPremisesCIDR
+          Description : Allow inbound access for on prem users on redshift port for the subnet
+          IpProtocol: tcp
+          FromPort: !FindInMap [ Redshift, Port, Number]
+          ToPort:  !FindInMap [ Redshift, Port, Number]
+      VpcId: !Ref VPC
+
+  SecurityGroupSelfReference:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Self Referencing Rule
+      FromPort: -1
+      IpProtocol: -1
+      GroupId: !GetAtt [SecurityGroupBatchRedshift, GroupId]
+      SourceSecurityGroupId: !GetAtt [SecurityGroupBatchRedshift, GroupId]
+      ToPort: -1
+
+  RedshiftClusterSubnetGroup:
+    Type: 'AWS::Redshift::ClusterSubnetGroup'
+    Properties:
+      Description: Cluster subnet group
+      SubnetIds:
+        - !Ref SubnetId
+
+  RedshiftBucketAccessIamPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: RedshiftConfigTestingBucketAccess
+            Effect: Allow
+            Action:
+              - s3:GetBucketLocation
+              - s3:GetObject
+              - s3:ListMultipartUploadParts
+              - s3:ListBucket
+              - s3:ListBucketMultipartUploads
+              - s3:PutObject
+              - s3:ListObjects
+            Resource:
+              - !Sub "arn:aws:s3:::${RedshiftConfigTestingBucket}"
+              - !Sub "arn:aws:s3:::${RedshiftConfigTestingBucket}/*"
+              - !Sub
+                - arn:aws:s3:::${RedshiftWhatIfConfigJsonObject}
+                - {RedshiftWhatIfConfigJsonObject: !Select [1, !Split ["//", !Ref ConfigJsonS3Path]]}
+
+          - Sid: RedshiftWhatIfExternalBucketAccess
+            Effect: Allow
+            Action:
+              - s3:GetBucketLocation
+              - s3:GetObject
+              - s3:ListMultipartUploadParts
+              - s3:ListBucket
+              - s3:ListBucketMultipartUploads
+              - s3:ListObjects
+            Resource:
+              - arn:aws:s3:::redshift-simple-replay-ra3/*
+              - arn:aws:s3:::redshift-simple-replay-ra3
+              - !Sub
+                - arn:aws:s3:::${RedshiftWhatIfConfigJsonBucket}/*
+                - {RedshiftWhatIfConfigJsonBucket: !Select [2, !Split ["/", !Ref ConfigJsonS3Path]]}
+              - !Sub
+                - arn:aws:s3:::${RedshiftWhatIfConfigJsonBucket}
+                - {RedshiftWhatIfConfigJsonBucket: !Select [2, !Split ["/", !Ref ConfigJsonS3Path]]}
+
+              - !If
+                - IsPreExistingS3Bucket
+                - !Sub "arn:aws:s3:::${PreExistingS3BucketToGrantRedshiftAccess}"
+                - !Ref 'AWS::NoValue'
+              - !If
+                - IsPreExistingS3Bucket
+                - !Sub "arn:aws:s3:::${PreExistingS3BucketToGrantRedshiftAccess}/*"
+                - !Ref 'AWS::NoValue'
+
+
+  RedshiftAccessIamPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - redshift:resumeCluster
+              - redshift:pauseCluster
+              - redshift:describeClusters
+              - redshift:modifyClusterParameterGroup
+              - redshift:createClusterParameterGroup
+              - redshift:describeClusterParameters
+              - redshift:resizeCluster
+              - redshift:createCluster
+              - redshift:GetClusterCredentials
+            Resource:
+              - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:cluster:${ClusterIdentifierPrefix}*"
+              - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:dbname:${ClusterIdentifierPrefix}*/*"
+              - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:dbuser:${ClusterIdentifierPrefix}*/*"
+              - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:parametergroup:${ClusterIdentifierPrefix}*"
+          - Effect: Allow
+            Action:
+              - iam:PassRole
+              - ec2:Describe*
+              - redshift:restoreFromClusterSnapshot
+              - redshift:describeClusterSnapshots
+              - redshift-data:ExecuteStatement
+              - redshift-data:ListStatements
+              - redshift-data:GetStatementResult
+              - redshift-data:DescribeStatement
+            Resource:
+              - '*'
+
+  KMSAccessPolicy:
+    Condition: EncryptedSourceCluster
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: 'KMSAccessPolicy'
+            Effect: 'Allow'
+            Action:
+              - 'kms:Encrypt'
+              - 'kms:Decrypt'
+              - 'kms:ReEncrypt*'
+              - 'kms:GenerateDataKey*'
+              - 'kms:CreateGrant'
+              - 'kms:ListGrants'
+              - 'kms:DescribeKey'
+            Resource: !Ref SourceRedshiftClusterKMSKeyARN
+
+  GlueCatalogAccessPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: 'GlueCatalogAccessPolicy'
+            Effect: 'Allow'
+            Action:
+              - glue:Get*
+              - glue:BatchGetPartition
+            Resource: '*'
+
+  RedshiftMLAccessPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: 'RedshiftMLAccessPolicy'
+            Effect: 'Allow'
+            Action:
+              - cloudwatch:PutMetricData
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:DescribeLogStreams
+              - logs:PutLogEvents
+              - ecr:BatchCheckLayerAvailability
+              - ecr:BatchGetImage
+              - ecr:GetAuthorizationToken
+              - ecr:GetDownloadUrlForLayer
+              - sagemaker:*Job*"
+            Resource: '*'
+
+  AWSBatchIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: batch.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole
+
+  EcsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+        - !Ref RedshiftBucketAccessIamPolicy
+        - !Ref RedshiftAccessIamPolicy
+
+  RedshiftPerformanceTestingJobDefinition:
+    Type: AWS::Batch::JobDefinition
+    Properties:
+      Type: container
+      RetryStrategy:
+        Attempts: 1
+      PlatformCapabilities:
+        - FARGATE
+      ContainerProperties:
+        Command:
+        - sh
+        - -c
+        - yum install -y awscli; aws s3 cp $BOOTSTRAP_SCRIPT ./bootstrap.sh; sh ./bootstrap.sh
+        Image: public.ecr.aws/amazonlinux/amazonlinux
+        NetworkConfiguration:
+          AssignPublicIp: ENABLED
+        ResourceRequirements:
+        - Type: VCPU
+          Value: 4
+        - Type: MEMORY
+          Value: 16384
+        JobRoleArn: !GetAtt EcsTaskExecutionRole.Arn
+        ExecutionRoleArn: !GetAtt EcsTaskExecutionRole.Arn
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            "awslogs-group": !Ref RedshiftConfigTestingLogGroup
+            "awslogs-stream-prefix": "batch"
+
+  RedshiftConfigTestingLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join [ '', [ '/', { Ref: 'AWS::StackName' }, '/log' ] ]
+      RetentionInDays: 14
+
+  RedshiftPerformanceTestingJobQueue:
+    Type: AWS::Batch::JobQueue
+    Properties:
+      Priority: 1
+      ComputeEnvironmentOrder:
+      - Order: 1
+        ComputeEnvironment:
+          Ref: ManagedComputeEnvironment
+
+  ManagedComputeEnvironment:
+    Type: AWS::Batch::ComputeEnvironment
+    Properties:
+      Type: MANAGED
+      ComputeResources:
+        Type: FARGATE
+        MaxvCpus: 256
+        Subnets:
+        - Ref: SubnetId
+        SecurityGroupIds:
+        - Ref: SecurityGroupBatchRedshift
+      ServiceRole: !GetAtt 'AWSBatchIamRole.Arn'
+
+  RedshiftIAMRole:
+    Type: AWS::IAM::Role
+    DependsOn: RedshiftConfigTestingBucket
+    Properties:
+      Description : IAM Role for RA3 Redshift cluster to access resources
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - redshift.amazonaws.com
+            - sagemaker.amazonaws.com
+        Version: '2012-10-17'
+      Path: "/"
+      ManagedPolicyArns:
+        - !Ref RedshiftBucketAccessIamPolicy
+        - !Ref GlueCatalogAccessPolicy
+        - !Ref RedshiftMLAccessPolicy
+        - Fn::If:
+          - EncryptedSourceCluster
+          - Ref: KMSAccessPolicy
+          - Ref: AWS::NoValue
+
+  RedshiftConfigTestingLambdaIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+        Version: '2012-10-17'
+      Path: "/"
+      ManagedPolicyArns:
+            - !Ref RedshiftBucketAccessIamPolicy
+            - !Ref RedshiftAccessIamPolicy
+            - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+            - Fn::If:
+              - EncryptedSourceCluster
+              - Ref: KMSAccessPolicy
+              - Ref: AWS::NoValue
+      Policies:
+        - PolicyName: RedshiftAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - iam:CreateServiceLinkedRole
+                Resource:
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/redshift.amazonaws.com/AWSServiceRoleForRedshift"
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetResourcePolicy
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                  - secretsmanager:ListSecretVersionIds
+                  - secretsmanager:ListSecrets
+                Resource: !Ref SecretRedshiftMasterUser
+              - Effect: Allow
+                Action:
+                  - batch:SubmitJob
+                Resource:
+                  - !Ref RedshiftPerformanceTestingJobDefinition
+                  - !Ref RedshiftPerformanceTestingJobQueue
+              - Effect: Allow
+                Action:
+                  - batch:DescribeJobs
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - glue:StartCrawler
+                Resource: "*"
+
+  RedshiftConfigTestingLambda:
+    Type: AWS::Lambda::Function
+    DependsOn: CopyRedshiftConfigTestingCode
+    Properties:
+      Description: RedshiftConfigTestingLambda
+      Handler: RedshiftConfigTestingLambda.handler
+      Runtime: python3.8
+      Role: !GetAtt 'RedshiftConfigTestingLambdaIamRole.Arn'
+      Timeout: 300
+      Code:
+        S3Bucket: !Ref RedshiftConfigTestingBucket
+        S3Key: !Sub
+          - ${ScriptPrefix}/${ConfigTestingLambdaScript}
+          - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix], ConfigTestingLambdaScript: !FindInMap [ ConfigTesting, S3, ConfigTestingLambdaScript]}
+      Environment:
+        Variables:
+          SYSTEM_CONFIG_JSON_S3_PATH: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${ScriptPrefix}/${SystemConfig}
+            - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix],SystemConfig: !FindInMap [ ConfigTesting, S3, SystemConfig]}
+          USER_CONFIG_JSON_S3_PATH: !Ref ConfigJsonS3Path
+          CLUSTER_IDENTIFIER_PREFIX: !Ref ClusterIdentifierPrefix
+
+  RedshiftConfigTestingStepFunctionIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            -
+              Effect: Allow
+              Principal:
+                Service:
+                  - states.amazonaws.com
+              Action:
+                - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+          -
+            PolicyName: LambdaInvokePolicy
+            PolicyDocument :
+              Version: 2012-10-17
+              Statement:
+                -
+                  Effect: "Allow"
+                  Action:
+                  - lambda:InvokeFunction
+                  Resource: !GetAtt RedshiftConfigTestingLambda.Arn
+
+
+  RedshiftConfigTestingStepFunction:
+    Type: "AWS::StepFunctions::StateMachine"
+    DependsOn: CopyRedshiftConfigTestingCode
+    Properties:
+      DefinitionS3Location:
+        Bucket: !Ref RedshiftConfigTestingBucket
+        Key: !Sub
+          - ${ScriptPrefix}/${ConfigTestingStepFunctionScript}
+          - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix], ConfigTestingStepFunctionScript: !FindInMap [ ConfigTesting, S3, ConfigTestingStepFunctionScript]}
+      DefinitionSubstitutions:
+        FunctionArn: !GetAtt RedshiftConfigTestingLambda.Arn
+        ClusterIdentifierPrefix: !Ref ClusterIdentifierPrefix
+      RoleArn: !GetAtt RedshiftConfigTestingStepFunctionIamRole.Arn
+
+  StartUpLambdaIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description : StartUpLambdaIAMRole
+      AssumeRolePolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            -
+              Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action:
+                - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+            - !Ref RedshiftBucketAccessIamPolicy
+            - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+          -
+            PolicyName: LambdaInvokePolicy
+            PolicyDocument :
+              Version: 2012-10-17
+              Statement:
+                -
+                  Effect: "Allow"
+                  Action:
+                  - states:StartExecution
+                  - redshift:DescribeClusterSnapshots
+                  Resource: "*"
+
+  StartUpLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: lambda to add iam role with access on simple replay S3 bucket to source redshift cluster
+      Handler: index.handler
+      Runtime: python3.8
+      Role: !GetAtt 'StartUpLambdaIAMRole.Arn'
+      Timeout: 60
+      Environment:
+        Variables:
+          USER_CONFIG_JSON_S3_PATH: !Ref ConfigJsonS3Path
+          S3_BUCKET_NAME: !Ref RedshiftConfigTestingBucket
+          REDSHIFT_IAM_ROLE: !GetAtt RedshiftIAMRole.Arn
+          SECURITY_GROUP_ID: !Ref SecurityGroupBatchRedshift
+          SUBNET_GROUP: !Ref RedshiftClusterSubnetGroup
+          STEP_FUNCTION_ARN: !Ref RedshiftConfigTestingStepFunction
+          SECRETS_MANAGER_ARN: !Ref SecretRedshiftMasterUser
+          DEFAULT_MASTER_USER: !FindInMap [ Redshift, User, Masteruser]
+          DEFAULT_DATABASE_NAME: !FindInMap [ Redshift, Database, Name]
+          DEFAULT_PORT: !FindInMap [ Redshift, Port, Number]
+          PUBLICLY_ACCESSIBLE: !FindInMap [ Redshift, Accessible, Public]
+          SCRIPT_PREFIX: !FindInMap [ ConfigTesting, S3, ScriptPrefix]
+          DATA_PREFIX: !FindInMap [ ConfigTesting, S3, DataPrefix]
+          EXTRACT_PREFIX: !FindInMap [ ConfigTesting, S3, ExtractPrefix]
+          REPLAY_PREFIX: !FindInMap [ ConfigTesting, S3, ReplayPrefix]
+          PRICING_URI: !FindInMap [ ConfigTesting, Pricing, Uri]
+          REMOVE_HEADER_LENGTH: !FindInMap [ ConfigTesting, Pricing, RemoveHeaderLength]
+          DISABLE_RESULT_CACHE: !FindInMap [ ConfigTesting, ConcurrencyTest, DisableResultCache]
+          DEFAULT_OUTPUT_LIMIT: !FindInMap [ ConfigTesting, ConcurrencyTest, DefaultOutputLimit]
+          MAX_NUMBER_OF_QUERIES: !FindInMap [ ConfigTesting, ConcurrencyTest, MaxNumberOfQueries]
+          MAX_PARALLEL_SESSIONS: !FindInMap [ ConfigTesting, ConcurrencyTest, MaxParallelSessions]
+          QUERY_LABEL_PREFIX: !FindInMap [ ConfigTesting, ConcurrencyTest, QueryLabelPrefix]
+          CRAWLER_NAME: !Ref GlueCrawlerConfigTestingData
+          GLUE_DATABASE_NAME: !FindInMap [ Glue, Database, Name]
+          REGION: !FindInMap
+            - Region
+            - !Ref AWS::Region
+            - Name
+          JOB_DEFINITION: !Ref RedshiftPerformanceTestingJobDefinition
+          JOB_QUEUE: !Ref RedshiftPerformanceTestingJobQueue
+          SYSTEM_CONFIG_JSON_S3_PATH: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${ScriptPrefix}/${SystemConfig}
+            - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix],SystemConfig: !FindInMap [ ConfigTesting, S3, SystemConfig]}
+          COMPARISON_STATS_S3_PATH: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${DataPrefix}/${DataLocation}
+            - {DataPrefix: !FindInMap [ ConfigTesting, S3, DataPrefix],DataLocation: !FindInMap [ ConfigTesting, S3, DataLocation]}
+          RAW_COMPARISON_RESULTS_S3_PATH: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${DataPrefix}/${RawResultsLocation}
+            - {DataPrefix: !FindInMap [ ConfigTesting, S3, DataPrefix],RawResultsLocation: !FindInMap [ ConfigTesting, S3, RawResultsLocation]}
+          RAW_COMPARISON_RESULTS_S3_PATH: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${DataPrefix}/${RawResultsLocation}
+            - {DataPrefix: !FindInMap [ ConfigTesting, S3, DataPrefix],RawResultsLocation: !FindInMap [ ConfigTesting, S3, RawResultsLocation]}
+          CLUSTER_CONFIG_S3_PATH: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${DataPrefix}/${ClusterConfigLocation}
+            - {DataPrefix: !FindInMap [ ConfigTesting, S3, DataPrefix],ClusterConfigLocation: !FindInMap [ ConfigTesting, S3, ClusterConfigLocation]}
+          COMPARISON_RESULTS_S3_PATH: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${DataPrefix}/${ResultsLocation}
+            - {DataPrefix: !FindInMap [ ConfigTesting, S3, DataPrefix],ResultsLocation: !FindInMap [ ConfigTesting, S3, ResultsLocation]}
+          PERFORMANCE_TEST_BOOTSTRAP_SCRIPT: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${ScriptPrefix}/${PerformanceTestBootstrapScript}
+            - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix],PerformanceTestBootstrapScript: !FindInMap [ ConfigTesting, S3, PerformanceTestBootstrapScript]}
+          EXTRACT_BOOTSTRAP_SCRIPT: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${ScriptPrefix}/${ExtractBootstrapScript}
+            - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix],ExtractBootstrapScript: !FindInMap [ ConfigTesting, S3, ExtractBootstrapScript]}
+          REPLAY_BOOTSTRAP_SCRIPT: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${ScriptPrefix}/${ReplayBootstrapScript}
+            - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix],ReplayBootstrapScript: !FindInMap [ ConfigTesting, S3, ReplayBootstrapScript]}
+          PERFORMANCE_TEST_PYTHON_SCRIPT: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${ScriptPrefix}/${PerformanceTestPythonScript}
+            - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix],PerformanceTestPythonScript: !FindInMap [ ConfigTesting, S3, PerformanceTestPythonScript]}
+          GATHER_COMPARISON_STATS_SCRIPT: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${ScriptPrefix}/${GatherComparisonStatsScript}
+            - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix],GatherComparisonStatsScript: !FindInMap [ ConfigTesting, S3, GatherComparisonStatsScript]}
+
+          POPULATE_COMPARISON_RESULTS_SCRIPT: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${ScriptPrefix}/${PopulateComparisonResultsScript}
+            - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix],PopulateComparisonResultsScript: !FindInMap [ ConfigTesting, S3, PopulateComparisonResultsScript]}
+
+          PARAMETER_GROUP_CONFIG: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${ScriptPrefix}/${ParameterGroupConfig}
+            - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix],ParameterGroupConfig: !FindInMap [ ConfigTesting, S3, ParameterGroupConfig]}
+          SYSTEM_CONFIG: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${ScriptPrefix}/${SystemConfig}
+            - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix],SystemConfig: !FindInMap [ ConfigTesting, S3, SystemConfig]}
+          PRICING_FILE: !Sub
+            - s3://${RedshiftConfigTestingBucket}/${DataPrefix}/${PricingFile}
+            - {DataPrefix: !FindInMap [ ConfigTesting, S3, DataPrefix],PricingFile: !FindInMap [ ConfigTesting, Pricing, File]}
+      Code:
+        ZipFile: |
+          import boto3
+          import botocore.exceptions as be
+          import traceback
+          import json
+          import cfnresponse
+          import urllib3
+          import os
+
+          def handler(event, context):
+              print(event)
+              res = {}
+              if event['RequestType'] != 'Delete':
+                  try:
+                      system_config = {}
+                      for item, value in sorted(os.environ.items(), key=lambda x: x[0]):
+                          system_config[item] = value
+
+                      user_config =  get_json_config_from_s3(os.environ['USER_CONFIG_JSON_S3_PATH'])
+                      master_user_name, database_name,port, source_node_type, source_number_of_nodes = get_db_params(user_config)
+
+                      system_config["MASTER_USER_NAME"] = master_user_name
+                      system_config["DATABASE_NAME"] = database_name
+                      system_config["PORT"] = port
+                      system_config["SOURCE_NODE_TYPE"] = source_node_type
+                      system_config["SOURCE_NUMBER_OF_NODES"] = source_number_of_nodes
+
+                      save_pricing_data(os.environ['PRICING_URI'], int(os.environ['REMOVE_HEADER_LENGTH']), os.environ['PRICING_FILE'])
+                      system_config["EXTERNAL_SCHEMA_SCRIPT"] = "create external schema "+ os.environ['GLUE_DATABASE_NAME'] + " from data catalog database '"+ os.environ['GLUE_DATABASE_NAME'] +"' iam_role '"+ os.environ['REDSHIFT_IAM_ROLE'] +"'"
+                      s3_put_config_file(system_config, os.environ['SYSTEM_CONFIG_JSON_S3_PATH'])
+                      response = boto3.client('stepfunctions').start_execution(
+                          stateMachineArn=os.environ['STEP_FUNCTION_ARN']
+                      )
+                      res = {'master_user_name': master_user_name, 'database_name': database_name, 'port': port}
+                  except Exception as e:
+                      res = {'error': e.response['Error']['Code'] if isinstance(e, be.ClientError) else 'failed'}
+                      print(traceback.format_exc())
+                      cfnresponse.send(event, context, cfnresponse.FAILED, res)
+                      raise
+                  print(response)
+              cfnresponse.send(event, context, cfnresponse.SUCCESS, res)
+          def get_json_config_from_s3(script_s3_path):
+              bucket, key = script_s3_path.replace("s3://", "").split("/", 1)
+              obj = boto3.client('s3').get_object(Bucket=bucket, Key=key)
+              return json.loads(obj['Body'].read().decode('utf-8'))
+
+          def s3_put_config_file(dict_obj, s3_path):
+              s3 = boto3.client('s3')
+              bucket, key = s3_path.replace("s3://", "").split("/", 1)
+              s3.put_object(Body=json.dumps(dict_obj), Bucket=bucket, Key=key)
+
+          def save_pricing_data(pricing_uri, remove_header_length, price_info_file_s3_path):
+              bucket, key = price_info_file_s3_path.replace("s3://", "").split("/", 1)
+              price_content = urllib3.PoolManager().request('GET', pricing_uri).data.decode("utf-8")
+              pricing_content_list = price_content.split('\n')
+              new_content = '\n'.join(pricing_content_list[remove_header_length:])
+              boto3.client('s3').put_object(Body=new_content, Bucket=bucket, Key=key)
+
+          def get_clusters(client, cluster_identifier):
+              try:
+                  cluster_identifiers = []
+                  for cluster in client.describe_clusters().get('Clusters'):
+                      if cluster_identifier in cluster.get('ClusterIdentifier'):
+                          cluster_identifiers.append(cluster.get('ClusterIdentifier'))
+                  return cluster_identifiers
+              except be.ClientError as e:
+                  msg = e.response['Error']['Code']
+                  if msg == 'ClusterNotFound':
+                      status = 'N/A'
+                  else:
+                      raise
+              return status
+
+          def get_db_params(user_config:dict):
+              if user_config.get('snapshot_id') is None or user_config.get('snapshot_id') == "N/A":
+                  master_user_name=os.environ['DEFAULT_MASTER_USER']
+                  database_name=os.environ['DEFAULT_DATABASE_NAME']
+                  port=os.environ['DEFAULT_PORT']
+                  source_node_type=""
+                  source_number_of_nodes=0
+              else:
+                  resp = boto3.client('redshift').describe_cluster_snapshots(SnapshotIdentifier=user_config.get('snapshot_id'))
+                  master_user_name = resp['Snapshots'][0]['MasterUsername']
+                  database_name = resp['Snapshots'][0]['DBName']
+                  port = resp['Snapshots'][0]['Port']
+                  source_node_type=resp['Snapshots'][0]['NodeType']
+                  source_number_of_nodes=resp['Snapshots'][0]['NumberOfNodes']
+              return (master_user_name, database_name, port, source_node_type, source_number_of_nodes)
+
+  StartUp:
+    Type: Custom::StartUpLambda
+    Properties:
+      ServiceToken: !GetAtt [StartUpLambda, Arn]
+
+  LambdaFunctionS3Copy:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Description: lambda to copy files
+      Handler: index.handler
+      Runtime: python3.8
+      Role: !GetAtt 'StartUpLambdaIAMRole.Arn'
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          import traceback
+
+          def handler(event, context):
+              print(event)
+              source_folder_s3_path = event['ResourceProperties']['source_folder_s3_path']
+              target_folder_s3_path = event['ResourceProperties']['target_folder_s3_path']
+              s3 = boto3.resource('s3')
+
+              if event['RequestType'] == 'Delete':
+                  try:
+                      bucket_name = target_folder_s3_path.split('/')[2]
+                      prefix = target_folder_s3_path.split('/')[3] + '/'
+                      bucket = s3.Bucket(bucket_name)
+                      bucket.objects.filter(Prefix=prefix).delete()
+                  except Exception as e:
+                      print(e)
+                      print(traceback.format_exc())
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Data': 'Delete complete'})
+              else:
+                  try:
+                      source_bucket, source_prefix = source_folder_s3_path.replace("s3://", "").split("/", 1)
+                      target_bucket, target_prefix = target_folder_s3_path.replace("s3://", "").split("/", 1)
+                      for obj in s3.Bucket(source_bucket).objects.filter(Prefix=source_prefix):
+                          source_object = {'Bucket': source_bucket, 'Key': obj.key}
+                          new_key = obj.key.replace(source_prefix, target_prefix, 1)
+                          target_object = s3.Bucket(target_bucket).Object(new_key)
+                          target_object.copy(source_object)
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Data': 'Copy complete'})
+                  except Exception as e:
+                      print(e)
+                      print(traceback.format_exc())
+                      cfnresponse.send(event, context, cfnresponse.FAILED, {'Data': 'Copy failed'})
+
+  CopyRedshiftConfigTestingCode:
+    Type: Custom::CopyRedshiftConfigTestingCode
+    Properties:
+      ServiceToken:
+        Fn::GetAtt : [LambdaFunctionS3Copy, Arn]
+      source_folder_s3_path: !Sub
+        - s3://${ExternalPublicBucket}/${ScriptPrefix}
+        - {ExternalPublicBucket: !FindInMap [ ConfigTesting, S3, ExternalPublicBucket],ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix]}
+      target_folder_s3_path: !Sub
+        - s3://${RedshiftConfigTestingBucket}/${ScriptPrefix}
+        - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix]}
