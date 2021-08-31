@@ -1,6 +1,6 @@
 {
 	"SNAPSHOT_ID": "redshift-cluster-manual-snapshot",
-	"SNAPSHOT_ACCOUNT_ID": "009858891282",
+	"SNAPSHOT_ACCOUNT_ID": "123456789012",
 
 	"PARAMETER_GROUP_CONFIG_S3_PATH": "s3://your-node-config-compare-bucket/test-cases/parameter_group_config.json",
 
@@ -8,7 +8,7 @@
 	"SQL_SCRIPT_S3_PATH":"s3://your-node-config-compare-bucket/test-cases/test_queries.sql",
 	"NUMBER_OF_PARALLEL_SESSIONS_LIST": "1,5,10",
 
-	"SIMPLE_REPLAY_LOG_LOCATION":"s3://redshift-s3bucketredshiftlogging-1eevbb2glj6n4/RedshiftAuditLogs/",
+	"SIMPLE_REPLAY_LOG_LOCATION":"s3://redshift-logging/RedshiftAuditLogs/",
 	"SIMPLE_REPLAY_EXTRACT_START_TIME":"2021-08-28T11:15:00+00:00",
 	"SIMPLE_REPLAY_EXTRACT_END_TIME":"2021-08-28T12:00:00+00:00",
 
