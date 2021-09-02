@@ -13,17 +13,17 @@ Parameters:
   PreExistingS3BucketToGrantRedshiftAccess:
     Description: The existing Amazon S3 bucket in same AWS Region, which can be accessed by Redshift. If using Redshift Simple Replay, please input Redshift Audit Logging Bucket Name here
     Type: String
-    Default: 'my-redshift-logging-bucket'
+    Default: 'redshift-s3bucketredshiftlogging-1eevbb2glj6n4'
 
   SourceRedshiftClusterKMSKeyARN:
     Description: KMS key ARN for the source redshift cluster If using encrypted snapshots (arn:aws:kms:region:account:key/xxxxxx-xxxxxx-xxxxxxxxxx)
     Type: String
-    Default: arn:aws:kms:us-east-1:xxxxxx:key/cbebxxxxxxx
+    Default: arn:aws:kms:us-east-1:009858891282:key/cbeb0081-1a47-42ab-9f63-5e5259fdb8e2
 
   OnPremisesCIDR:
     Description: IP range (CIDR notation) for your existing infrastructure 10.0.0.0/8
     Type: String
-    Default: 10.0.0.0/8
+    Default: 72.21.0.0/16
     MinLength: '9'
     MaxLength: '18'
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
@@ -31,9 +31,11 @@ Parameters:
   VPC:
     Description: "VPC where all resources would be created"
     Type: AWS::EC2::VPC::Id
+    Default: vpc-a088c1da
   SubnetId:
     Description: Primary Subnet ID where redshift clusters and AWS Batch compute instances will be created
     Type: AWS::EC2::Subnet::Id
+    Default: subnet-67fdc000
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -826,14 +828,14 @@ Resources:
               return status
 
           def get_db_params(user_config:dict):
-              if user_config.get('snapshot_id') is None or user_config.get('snapshot_id') == "N/A":
+              if user_config.get('SNAPSHOT_ID') is None or user_config.get('SNAPSHOT_ID') == "N/A":
                   master_user_name=os.environ['DEFAULT_MASTER_USER']
                   database_name=os.environ['DEFAULT_DATABASE_NAME']
                   port=os.environ['DEFAULT_PORT']
                   source_node_type=""
                   source_number_of_nodes=0
               else:
-                  resp = boto3.client('redshift').describe_cluster_snapshots(SnapshotIdentifier=user_config.get('snapshot_id'))
+                  resp = boto3.client('redshift').describe_cluster_snapshots(SnapshotIdentifier=user_config.get('SNAPSHOT_ID'))
                   master_user_name = resp['Snapshots'][0]['MasterUsername']
                   database_name = resp['Snapshots'][0]['DBName']
                   port = resp['Snapshots'][0]['Port']
