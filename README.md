@@ -168,22 +168,23 @@ select * from public.redshift_config_comparison_results;
 
 | **test type** | **cluster identifier** | **total query time seconds** | **improved total query time** | **mean query time seconds** | **improved mean query time** | **median query time seconds** | **improved median query time** |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| simple-replay | rs-dc2-8xlarge-2 | 35.37 | 108% | 1.77 | 107% | 0.887 | 114% |
-| simple-replay | rs-ra3-4xlarge-2 | 73.47 | 0% | 3.67 | 0% | 1.895 | 0% |
-| simple-replay | rs-ra3-4xlarge-4 | 43.49 | 69% | 2.17 | 69% | 1.178 | 61% |
-| simple-replay | rs-ra3-4xlarge-4-cs | 40.2 | 83% | 2.01 | 83% | 1.191 | 59% |
-| concurrency-1 | rs-dc2-8xlarge-2 | 3.44 | 269% | 0.69 | 268% | 0.587 | 113% |
-| concurrency-1 | rs-ra3-4xlarge-2 | 12.69 | 0% | 2.54 | 0% | 1.248 | 0% |
-| concurrency-1 | rs-ra3-4xlarge-4 | 2.77 | 358% | 0.55 | 362% | 0.487 | 156% |
-| concurrency-1 | rs-ra3-4xlarge-4-cs | 2.75 | 361% | 0.55 | 362% | 0.48 | 160% |
-| concurrency-5 | rs-dc2-8xlarge-2 | 29.8 | 168% | 1.19 | 168% | 0.82 | 154% |
-| concurrency-5 | rs-ra3-4xlarge-2 | 79.76 | 0% | 3.19 | 0% | 2.085 | 0% |
-| concurrency-5 | rs-ra3-4xlarge-4 | 22.43 | 256% | 0.9 | 254% | 0.837 | 149% |
-| concurrency-5 | rs-ra3-4xlarge-4-cs | 21.35 | 274% | 0.85 | 275% | 0.788 | 165% |
-| concurrency-10 | rs-dc2-8xlarge-2 | 92.76 | 207% | 1.86 | 206% | 1.413 | 206% |
-| concurrency-10 | rs-ra3-4xlarge-2 | 284.87 | 0% | 5.7 | 0% | 4.327 | 0% |
-| concurrency-10 | rs-ra3-4xlarge-4 | 88.05 | 224% | 1.76 | 224% | 1.615 | 168% |
-| concurrency-10 | rs-ra3-4xlarge-4-cs | 86.29 | 230% | 1.73 | 229% | 1.548 | 180% |
+| simple-replay | rs-dc2-8xlarge-2 | 20.1 | 75% | 1 | 76% | 0.801 | 46% |
+| simple-replay | rs-ra3-4xlarge-2 | 35.26 | 0% | 1.76 | 0% | 1.063 | 10% |
+| simple-replay | rs-ra3-4xlarge-4 | 19.58 | 80% | 0.98 | 80% | 0.681 | 72% |
+| simple-replay | rs-ra3-4xlarge-4-cs | 20.16 | 75% | 1.01 | 74% | 0.716 | 63% |
+| concurrency-1 | rs-dc2-8xlarge-2 | 3.46 | 4% | 0.69 | 4% | 0.576 | 0% |
+| concurrency-1 | rs-ra3-4xlarge-2 | 3.61 | 0% | 0.72 | 0% | 0.571 | 1% |
+| concurrency-1 | rs-ra3-4xlarge-4 | 2.67 | 35% | 0.53 | 36% | 0.445 | 29% |
+| concurrency-1 | rs-ra3-4xlarge-4-cs | 1.45 | 149% | 0.29 | 148% | 0.275 | 109% |
+| concurrency-5 | rs-dc2-8xlarge-2 | 22.74 | 102% | 0.91 | 102% | 0.615 | 135% |
+| concurrency-5 | rs-ra3-4xlarge-2 | 45.88 | 0% | 1.84 | 0% | 1.443 | 0% |
+| concurrency-5 | rs-ra3-4xlarge-4 | 22.75 | 102% | 0.91 | 102% | 0.808 | 79% |
+| concurrency-5 | rs-ra3-4xlarge-4-cs | 21.19 | 117% | 0.9 | 104% | 0.884 | 63% |
+| concurrency-10 | rs-dc2-8xlarge-2 | 127.46 | 39% | 2.55 | 38% | 1.797 | 81% |
+| concurrency-10 | rs-ra3-4xlarge-2 | 176.62 | 0% | 3.53 | 0% | 3.256 | 0% |
+| concurrency-10 | rs-ra3-4xlarge-4 | 92.18 | 92% | 1.84 | 92% | 1.661 | 96% |
+| concurrency-10 | rs-ra3-4xlarge-4-cs | 88.16 | 100% | 1.76 | 101% | 1.59 | 105% |
+
 
 Based on above results, you may observe that four nodes of RA3.4XLarge with concurrency scaling enabled was the best performing configuration in this testing.
 
