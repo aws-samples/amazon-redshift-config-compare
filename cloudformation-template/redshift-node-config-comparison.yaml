@@ -13,17 +13,17 @@ Parameters:
   PreExistingS3BucketToGrantRedshiftAccess:
     Description: The existing Amazon S3 bucket in same AWS Region, which can be accessed by Redshift. If using Redshift Simple Replay, please input Redshift Audit Logging Bucket Name here
     Type: String
-    Default: 'redshift-s3bucketredshiftlogging-1eevbb2glj6n4'
+    Default: 'redshift-s3bucketredshiftlogging-xxxxxxxxx'
 
   SourceRedshiftClusterKMSKeyARN:
     Description: KMS key ARN for the source redshift cluster If using encrypted snapshots (arn:aws:kms:region:account:key/xxxxxx-xxxxxx-xxxxxxxxxx)
     Type: String
-    Default: arn:aws:kms:us-east-1:009858891282:key/cbeb0081-1a47-42ab-9f63-5e5259fdb8e2
+    Default: arn:aws:kms:us-east-1:xxxxxxxxx:key/xxxxxxxx
 
   OnPremisesCIDR:
     Description: IP range (CIDR notation) for your existing infrastructure 10.0.0.0/8
     Type: String
-    Default: 72.21.0.0/16
+    Default: 10.10.0.0/16
     MinLength: '9'
     MaxLength: '18'
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
@@ -31,11 +31,11 @@ Parameters:
   VPC:
     Description: "VPC where all resources would be created"
     Type: AWS::EC2::VPC::Id
-    Default: vpc-a088c1da
+    Default: xxxxxxxx
   SubnetId:
     Description: Primary Subnet ID where redshift clusters and AWS Batch compute instances will be created
     Type: AWS::EC2::Subnet::Id
-    Default: subnet-67fdc000
+    Default: xxxxxxxxx
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
