@@ -3,7 +3,7 @@ Description: 'Amazon Redshift What If Analysis'
 
 Parameters:
   ConfigJsonS3Path:
-    Description: S3 location uri for configuration json file. Please note, This automation would grant full access on your config file's S3 bucket. s3://node_configuration_test_s3_bucket/prefix/user_config.json
+    Description: S3 location uri for configuration json file. Please note, This automation would grant full access on your config file's S3 bucket.
     Type: String
     Default: s3://your-node-config-compare-bucket/test-cases/user_config.json
   ClusterIdentifierPrefix:
@@ -13,17 +13,17 @@ Parameters:
   PreExistingS3BucketToGrantRedshiftAccess:
     Description: The existing Amazon S3 bucket in same AWS Region, which can be accessed by Redshift. If using Redshift Simple Replay, please input Redshift Audit Logging Bucket Name here
     Type: String
-    Default: 'redshift-s3bucketredshiftlogging-xxxxxxxxx'
+    Default: 'your-redshift-audit-logging-bucket-or-any-bucket'
 
   SourceRedshiftClusterKMSKeyARN:
-    Description: KMS key ARN for the source redshift cluster If using encrypted snapshots (arn:aws:kms:region:account:key/xxxxxx-xxxxxx-xxxxxxxxxx)
+    Description: KMS key ARN for the source redshift cluster If using encrypted snapshots
     Type: String
-    Default: arn:aws:kms:us-east-1:xxxxxxxxx:key/xxxxxxxx
+    Default: arn:aws:kms:region:account:key/xxxxxx-xxxxxx-xxxxxxxxxx
 
   OnPremisesCIDR:
     Description: IP range (CIDR notation) for your existing infrastructure 10.0.0.0/8
     Type: String
-    Default: 10.10.0.0/16
+    Default: 10.0.0.0/8
     MinLength: '9'
     MaxLength: '18'
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
@@ -31,11 +31,9 @@ Parameters:
   VPC:
     Description: "VPC where all resources would be created"
     Type: AWS::EC2::VPC::Id
-    Default: xxxxxxxx
   SubnetId:
     Description: Primary Subnet ID where redshift clusters and AWS Batch compute instances will be created
     Type: AWS::EC2::Subnet::Id
-    Default: xxxxxxxxx
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:

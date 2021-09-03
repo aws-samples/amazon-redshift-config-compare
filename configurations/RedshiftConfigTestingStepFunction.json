@@ -20,6 +20,27 @@
           }
         }
       },
+      "Next": "run_extract"
+    },
+    "run_extract": {
+      "Comment": "Invoke lambda function",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "TimeoutSeconds": 300,
+      "HeartbeatSeconds": 60,
+      "ResultPath": "$.extract_job_id",
+      "ResultSelector": {
+        "output.$": "$.Payload"
+      },
+      "Parameters": {
+        "FunctionName": "${FunctionArn}",
+        "Payload": {
+          "Input": {
+            "action": "run_extract",
+            "what_if_timestamp.$": "$.what_if_timestamp.output.status"
+          }
+        }
+      },
       "Next": "get_redshift_configurations"
     },
     "get_redshift_configurations": {
@@ -49,7 +70,8 @@
       "Parameters": {
         "redshift_cluster_configuration.$": "$$.Map.Item.Value",
         "redshift_cluster_index.$": "$$.Map.Item.Index",
-        "what_if_timestamp.$": "$.what_if_timestamp"
+        "what_if_timestamp.$": "$.what_if_timestamp",
+        "extract_job_id.$": "$.extract_job_id"
       },
       "Iterator": {
         "StartAt": "get_cluster_identifier",
@@ -296,6 +318,12 @@
                 }
               }
             },
+            "Next": "update_wlm_wait"
+          },
+          "update_wlm_wait": {
+            "Comment": "Wait before next",
+            "Type": "Wait",
+            "Seconds": 120,
             "Next": "run_ddl_and_copy_script"
           },
           "run_ddl_and_copy_script": {
@@ -414,32 +442,10 @@
               {
                 "Variable": "$.step_output.output.status",
                 "StringEquals": "FINISHED",
-                "Next": "run_extract"
+                "Next": "extract_status_check"
               }
             ],
             "Default": "run_redshift_performance_test_wait"
-          },
-          "run_extract": {
-            "Comment": "Invoke lambda function",
-            "Type": "Task",
-            "Resource": "arn:aws:states:::lambda:invoke",
-            "TimeoutSeconds": 300,
-            "HeartbeatSeconds": 60,
-            "ResultPath": "$.batch_output",
-            "ResultSelector": {
-              "output.$": "$.Payload"
-            },
-            "Parameters": {
-              "FunctionName": "${FunctionArn}",
-              "Payload": {
-                "Input": {
-                  "action": "run_extract",
-                  "redshift_cluster_index.$": "$.redshift_cluster_index",
-                  "what_if_timestamp.$": "$.what_if_timestamp.output.status"
-                }
-              }
-            },
-            "Next": "extract_wait"
           },
           "extract_wait": {
             "Comment": "Wait before status check",
@@ -462,8 +468,7 @@
               "Payload": {
                 "Input": {
                   "action": "batch_job_status",
-                  "job_id.$": "$.batch_output.output.job_id",
-                  "what_if_timestamp.$": "$.what_if_timestamp.output.status"
+                  "job_id.$": "$.extract_job_id.output.job_id"
                 }
               }
             },

@@ -16,20 +16,14 @@ yum -y install python3
 yum -y install python3-pip
 yum -y install aws-cfn-bootstrap
 yum -y install gcc gcc-c++ python3 python3-devel unixODBC unixODBC-devel
-# mkdir /root/.aws
-# echo "[default]" > /root/.aws/config
-# echo "region = ${AWS::Region}" >> /root/.aws/config
 mkdir /amazonutils
 cd /amazonutils
 git clone https://github.com/awslabs/amazon-redshift-utils.git
 pip3 install -r /amazonutils/amazon-redshift-utils/src/SimpleReplay/requirements.txt
-#
-# configure extract replay metadata
-#
 cd /amazonutils/amazon-redshift-utils/src/SimpleReplay
-# if ! [ -z "$SIMPLE_REPLAY_EXTRACT_OVERWRITE_S3_PATH" ]; then
-#   aws s3 cp $SIMPLE_REPLAY_EXTRACT_OVERWRITE_S3_PATH extract.yaml
-# fi
+if [[ "$SIMPLE_REPLAY_EXTRACT_OVERWRITE_S3_PATH" != "N/A" ]]; then
+  aws s3 cp $SIMPLE_REPLAY_EXTRACT_OVERWRITE_S3_PATH replay.yaml
+fi
 
 sed -i "s#master_username: \"awsuser\"#master_username: \"$REDSHIFT_USER_NAME\"#g" extract.yaml
 sed -i "s#endpoint:port/dbname##g" extract.yaml

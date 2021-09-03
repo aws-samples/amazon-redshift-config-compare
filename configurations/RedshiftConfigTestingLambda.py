@@ -26,8 +26,25 @@ def handler(event, context):
         client = boto3.client('redshift')
         if action == "initiate":
             what_if_timestamp = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime(time.time()))
-            # s3_put(system_config.get('S3_BUCKET_NAME'), system_config.get('DATA_PREFIX') + '/' + what_if_timestamp + "/'")
             res = {'status': what_if_timestamp}
+        elif action == "run_extract":
+            res = {
+                'job_id': run_extract(
+                    what_if_timestamp=what_if_timestamp,
+                    simple_replay_log_location=user_config.get('SIMPLE_REPLAY_LOG_LOCATION'),
+                    simple_replay_extract_start_time=user_config.get('SIMPLE_REPLAY_EXTRACT_START_TIME'),
+                    simple_replay_extract_end_time=user_config.get('SIMPLE_REPLAY_EXTRACT_END_TIME'),
+                    simple_replay_extract_overwrite_s3_path=user_config.get('SIMPLE_REPLAY_EXTRACT_OVERWRITE_S3_PATH'),
+                    bucket_name=system_config.get('S3_BUCKET_NAME'),
+                    redshift_user_name=system_config.get('MASTER_USER_NAME'),
+                    extract_prefix=system_config.get('EXTRACT_PREFIX'),
+                    script_prefix=system_config.get('SCRIPT_PREFIX'),
+                    extract_bootstrap_script=system_config.get('EXTRACT_BOOTSTRAP_SCRIPT'),
+                    job_definition=system_config.get('JOB_DEFINITION'),
+                    job_queue=system_config.get('JOB_QUEUE')
+                )}
+        elif action == "batch_job_status":
+            res = {'status': batch_job_status(job_id=job_id)}
         elif action == "get_redshift_configurations":
             res = {'status': user_config.get('CONFIGURATIONS')}
         elif action == "get_cluster_identifier":
@@ -113,23 +130,6 @@ def handler(event, context):
                     query_label_prefix=system_config.get('QUERY_LABEL_PREFIX')
 
                 )}
-        elif action == "run_extract":
-            res = {
-                'job_id': run_extract(
-                    what_if_timestamp=what_if_timestamp,
-                    redshift_cluster_index=redshift_cluster_index,
-                    simple_replay_log_location=user_config.get('SIMPLE_REPLAY_LOG_LOCATION'),
-                    simple_replay_extract_start_time=user_config.get('SIMPLE_REPLAY_EXTRACT_START_TIME'),
-                    simple_replay_extract_end_time=user_config.get('SIMPLE_REPLAY_EXTRACT_END_TIME'),
-                    simple_replay_extract_overwrite_s3_path=user_config.get('SIMPLE_REPLAY_EXTRACT_OVERWRITE_S3_PATH'),
-                    bucket_name=system_config.get('S3_BUCKET_NAME'),
-                    redshift_user_name=system_config.get('MASTER_USER_NAME'),
-                    extract_prefix=system_config.get('EXTRACT_PREFIX'),
-                    script_prefix=system_config.get('SCRIPT_PREFIX'),
-                    extract_bootstrap_script=system_config.get('EXTRACT_BOOTSTRAP_SCRIPT'),
-                    job_definition=system_config.get('JOB_DEFINITION'),
-                    job_queue=system_config.get('JOB_QUEUE')
-                )}
         elif action == "run_replay":
             res = {
                 'job_id': run_replay(
@@ -146,15 +146,12 @@ def handler(event, context):
                     db=system_config.get('DATABASE_NAME'),
                     extract_prefix=system_config.get('EXTRACT_PREFIX'),
                     replay_prefix=system_config.get('REPLAY_PREFIX'),
+                    script_prefix=system_config.get('SCRIPT_PREFIX'),
+                    snapshot_account_id=user_config.get('SNAPSHOT_ACCOUNT_ID'),
                     replay_bootstrap_script=system_config.get('REPLAY_BOOTSTRAP_SCRIPT'),
                     job_definition=system_config.get('JOB_DEFINITION'),
                     job_queue=system_config.get('JOB_QUEUE')
                 )}
-        elif action == "batch_job_status":
-            res = {'status': batch_job_status(job_id=job_id,
-                                              extract_s3_path='s3://' + system_config.get(
-                                                  'S3_BUCKET_NAME') + '/' + system_config.get(
-                                                  'EXTRACT_PREFIX') + '/' + what_if_timestamp + '/')}
         elif action == "gather_comparison_stats":
             res = {'sql_id': gather_comparison_stats(script_s3_path=system_config.get('GATHER_COMPARISON_STATS_SCRIPT'),
                                                      action=action,
@@ -542,16 +539,17 @@ def get_workload_location(extract_s3_path):
         return None
 
 
-def run_extract(what_if_timestamp, redshift_cluster_index, simple_replay_log_location,
+def run_extract(what_if_timestamp, simple_replay_log_location,
                 simple_replay_extract_start_time, simple_replay_extract_end_time,
                 simple_replay_extract_overwrite_s3_path,
                 bucket_name, redshift_user_name,
                 extract_prefix, script_prefix, extract_bootstrap_script, job_definition, job_queue):
     if simple_replay_log_location is None or simple_replay_log_location == "N/A":
         return "N/A"
-    elif redshift_cluster_index > 0:
-        return "EXTRACT_WAIT"
     else:
+        if simple_replay_extract_overwrite_s3_path is None:
+            simple_replay_extract_overwrite_s3_path="N/A"
+
         response = boto3.client('batch').submit_job(jobName='AmazonRedshiftExtract',
                                                     jobQueue=job_queue,
                                                     jobDefinition=job_definition,
@@ -581,11 +579,13 @@ def run_extract(what_if_timestamp, redshift_cluster_index, simple_replay_log_loc
 
 def run_replay(client, what_if_timestamp, cluster_identifier, extract_s3_path, simple_replay_log_location,
                simple_replay_overwrite_s3_path, bucket_name, redshift_user_name,
-               redshift_iam_role, db, extract_prefix, replay_prefix, replay_bootstrap_script, job_definition,
-               job_queue):
+               redshift_iam_role, db, extract_prefix, replay_prefix,script_prefix, snapshot_account_id,
+               replay_bootstrap_script, job_definition, job_queue):
     if simple_replay_log_location is None or simple_replay_log_location == "N/A":
         return "N/A"
     else:
+        if simple_replay_overwrite_s3_path is None:
+            simple_replay_overwrite_s3_path="N/A"
         desc = client.describe_clusters(ClusterIdentifier=cluster_identifier)['Clusters'][0]
         cluster_endpoint = desc.get('Endpoint').get('Address') + ":" + str(desc.get('Endpoint').get('Port')) + "/" + db
         workload_location = get_workload_location(extract_s3_path)
@@ -610,7 +610,9 @@ def run_replay(client, what_if_timestamp, cluster_identifier, extract_s3_path, s
                                                             {"name": "REDSHIFT_USER_NAME", "value": redshift_user_name},
                                                             {"name": "REDSHIFT_IAM_ROLE", "value": redshift_iam_role},
                                                             {"name": "EXTRACT_PREFIX", "value": extract_prefix},
-                                                            {"name": "REPLAY_PREFIX", "value": replay_prefix}
+                                                            {"name": "REPLAY_PREFIX", "value": replay_prefix},
+                                                            {"name": "SCRIPT_PREFIX", "value": script_prefix},
+                                                            {"name": "SNAPSHOT_ACCOUNT_ID", "value": snapshot_account_id}
                                                         ]
                                                     })
 
@@ -620,11 +622,6 @@ def run_replay(client, what_if_timestamp, cluster_identifier, extract_s3_path, s
 def batch_job_status(job_id, extract_s3_path=None):
     if job_id == "N/A":
         return "FINISHED"
-    elif job_id == "EXTRACT_WAIT":
-        if get_workload_location(extract_s3_path):
-            return "FINISHED"
-        else:
-            return "EXTRACT_WAIT"
     else:
         job_stats = boto3.client('batch').describe_jobs(jobs=[job_id]).get('jobs')[0]
         if job_stats.get('status') == "FAILED":
@@ -633,7 +630,6 @@ def batch_job_status(job_id, extract_s3_path=None):
             return "FINISHED"
         else:
             return job_stats.get('status')
-
 
 def run_glue_crawler(crawler_name):
     try:
