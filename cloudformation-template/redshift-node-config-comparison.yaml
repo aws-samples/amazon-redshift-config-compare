@@ -14,7 +14,13 @@ Parameters:
     Description: The existing Amazon S3 bucket in same AWS Region, which can be accessed by Redshift. If using Redshift Simple Replay, please input Redshift Audit Logging Bucket Name here
     Type: String
     Default: 'your-redshift-audit-logging-bucket-or-any-bucket'
-
+  GrantS3ReadOnlyAccessToRedshift:
+    Description: Do you want to grant AmazonS3ReadOnlyAccess to the redshift clusters to facilitate replaying copy commands? [Applicable for same account copy statements only if running extract and replay in the same AWS account]
+    Type: String
+    Default: "Yes"
+    AllowedValues:
+      - "Yes"
+      - "No"
   SourceRedshiftClusterKMSKeyARN:
     Description: KMS key ARN for the source redshift cluster If using encrypted snapshots
     Type: String
@@ -48,7 +54,12 @@ Metadata:
           - OnPremisesCIDR
           - VPC
           - SubnetId
+          - GrantS3ReadOnlyAccessToRedshift
 Conditions:
+  GrantS3ReadOnlyAccessToRedshift:
+    !Equals
+    - !Ref GrantS3ReadOnlyAccessToRedshift
+    - "Yes"
   IsPreExistingS3Bucket:
     Fn::Not:
       - Fn::Equals:
@@ -509,6 +520,7 @@ Resources:
         - !Ref RedshiftBucketAccessIamPolicy
         - !Ref GlueCatalogAccessPolicy
         - !Ref RedshiftMLAccessPolicy
+        - !If [GrantS3ReadOnlyAccessToRedshift, "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess", !Ref "AWS::NoValue"]
         - Fn::If:
           - EncryptedSourceCluster
           - Ref: KMSAccessPolicy
@@ -760,7 +772,6 @@ Resources:
           import cfnresponse
           import urllib3
           import os
-
           def handler(event, context):
               print(event)
               res = {}
@@ -769,16 +780,13 @@ Resources:
                       system_config = {}
                       for item, value in sorted(os.environ.items(), key=lambda x: x[0]):
                           system_config[item] = value
-
                       user_config =  get_json_config_from_s3(os.environ['USER_CONFIG_JSON_S3_PATH'])
                       master_user_name, database_name,port, source_node_type, source_number_of_nodes = get_db_params(user_config)
-
                       system_config["MASTER_USER_NAME"] = master_user_name
                       system_config["DATABASE_NAME"] = database_name
                       system_config["PORT"] = port
                       system_config["SOURCE_NODE_TYPE"] = source_node_type
                       system_config["SOURCE_NUMBER_OF_NODES"] = source_number_of_nodes
-
                       save_pricing_data(os.environ['PRICING_URI'], int(os.environ['REMOVE_HEADER_LENGTH']), os.environ['PRICING_FILE'])
                       system_config["EXTERNAL_SCHEMA_SCRIPT"] = "create external schema "+ os.environ['GLUE_DATABASE_NAME'] + " from data catalog database '"+ os.environ['GLUE_DATABASE_NAME'] +"' iam_role '"+ os.environ['REDSHIFT_IAM_ROLE'] +"'"
                       s3_put_config_file(system_config, os.environ['SYSTEM_CONFIG_JSON_S3_PATH'])
@@ -797,19 +805,16 @@ Resources:
               bucket, key = script_s3_path.replace("s3://", "").split("/", 1)
               obj = boto3.client('s3').get_object(Bucket=bucket, Key=key)
               return json.loads(obj['Body'].read().decode('utf-8'))
-
           def s3_put_config_file(dict_obj, s3_path):
               s3 = boto3.client('s3')
               bucket, key = s3_path.replace("s3://", "").split("/", 1)
               s3.put_object(Body=json.dumps(dict_obj), Bucket=bucket, Key=key)
-
           def save_pricing_data(pricing_uri, remove_header_length, price_info_file_s3_path):
               bucket, key = price_info_file_s3_path.replace("s3://", "").split("/", 1)
               price_content = urllib3.PoolManager().request('GET', pricing_uri).data.decode("utf-8")
               pricing_content_list = price_content.split('\n')
               new_content = '\n'.join(pricing_content_list[remove_header_length:])
               boto3.client('s3').put_object(Body=new_content, Bucket=bucket, Key=key)
-
           def get_clusters(client, cluster_identifier):
               try:
                   cluster_identifiers = []
@@ -824,7 +829,6 @@ Resources:
                   else:
                       raise
               return status
-
           def get_db_params(user_config:dict):
               if user_config.get('SNAPSHOT_ID') is None or user_config.get('SNAPSHOT_ID') == "N/A":
                   master_user_name=os.environ['DEFAULT_MASTER_USER']
@@ -840,7 +844,6 @@ Resources:
                   source_node_type=resp['Snapshots'][0]['NodeType']
                   source_number_of_nodes=resp['Snapshots'][0]['NumberOfNodes']
               return (master_user_name, database_name, port, source_node_type, source_number_of_nodes)
-
   StartUp:
     Type: Custom::StartUpLambda
     Properties:
@@ -859,13 +862,11 @@ Resources:
           import boto3
           import cfnresponse
           import traceback
-
           def handler(event, context):
               print(event)
               source_folder_s3_path = event['ResourceProperties']['source_folder_s3_path']
               target_folder_s3_path = event['ResourceProperties']['target_folder_s3_path']
               s3 = boto3.resource('s3')
-
               if event['RequestType'] == 'Delete':
                   try:
                       bucket_name = target_folder_s3_path.split('/')[2]
@@ -890,7 +891,6 @@ Resources:
                       print(e)
                       print(traceback.format_exc())
                       cfnresponse.send(event, context, cfnresponse.FAILED, {'Data': 'Copy failed'})
-
   CopyRedshiftConfigTestingCode:
     Type: Custom::CopyRedshiftConfigTestingCode
     Properties:
