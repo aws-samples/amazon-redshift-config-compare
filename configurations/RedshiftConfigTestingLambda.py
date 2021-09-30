@@ -99,6 +99,11 @@ def handler(event, context):
         elif action == "update_wlm_config":
             res = {'status': update_wlm_config(client, cluster_identifier,
                                                redshift_cluster_configuration.get('WLM_CONFIG_S3_PATH'))}
+                                               
+        ## Added to check for clusters in pending reboot after wlm change ##
+        elif action == "check_pending_reboot_status":
+            res = {'status': check_pending_reboot_status(client, cluster_identifier) }
+        
         elif action == "run_ddl_and_copy_script":
             res = {
                 'sql_id': run_sql_script_from_s3(script_s3_path=user_config.get('DDL_AND_COPY_SCRIPT_S3_PATH'),
@@ -313,7 +318,20 @@ def update_wlm_config(client, cluster_identifier, wlm_config_s3_path):
                 },
             ])
     return "initiated"
-
+    
+## Added to check for clusters in pending reboot after wlm change ##
+def check_pending_reboot_status(client,cluster_identifier):
+    try:
+        cluster_desc = client.describe_clusters(ClusterIdentifier=cluster_identifier)['Clusters'][0]
+        desc_paramgroup_status = cluster_desc['ClusterParameterGroups'][0]['ParameterApplyStatus']
+        status = cluster_desc.get('ClusterStatus') + cluster_desc.get('ClusterAvailabilityStatus') + desc_paramgroup_status
+        if desc_paramgroup_status == 'pending-reboot':
+                print('Cluster {} needs to be rebooted to apply the WLM config changes'.format(cluster_identifier))
+                client.reboot_cluster(ClusterIdentifier=cluster_identifier)
+    except Exception as err:
+        print(err)
+        status = 'availableAvailablein-sync'
+    return status
 
 def get_json_config_from_s3(script_s3_path):
     bucket, key = script_s3_path.replace("s3://", "").split("/", 1)

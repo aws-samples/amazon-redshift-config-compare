@@ -324,7 +324,45 @@
             "Comment": "Wait before next",
             "Type": "Wait",
             "Seconds": 120,
-            "Next": "run_ddl_and_copy_script"
+            "Next": "check_pending_reboot_status"
+          },
+          "check_pending_reboot_status": {
+            "Comment": "check if clsuter is in pending reboot",
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "TimeoutSeconds": 300,
+            "HeartbeatSeconds": 60,
+            "ResultPath": "$.result",
+            "ResultSelector": {
+              "output.$": "$.Payload"
+            },
+            "Parameters": {
+              "FunctionName": "${FunctionArn}",
+              "Payload": {
+                "Input": {
+                  "action": "check_pending_reboot_status",
+                  "cluster_identifier.$": "$.cluster_identifier.output.status"
+                }
+              }
+            },
+            "Next": "cluster_reboot_status_check"
+          },
+          "cluster_reboot_status_check": {
+            "Type": "Choice",
+            "Choices": [
+              {
+                "Variable": "$.result.output.status",
+                "StringEquals": "availableAvailablein-sync",
+                "Next": "run_ddl_and_copy_script"
+              }
+            ],
+            "Default": "cluster_reboot_wait"
+          },
+          "cluster_reboot_wait": {
+            "Comment": "Wait for cluster to be available after reboot",
+            "Type": "Wait",
+            "Seconds": 60,
+            "Next": "check_pending_reboot_status"
           },
           "run_ddl_and_copy_script": {
             "Comment": "Invoke lambda function",
