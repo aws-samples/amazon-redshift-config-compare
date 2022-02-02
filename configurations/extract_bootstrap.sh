@@ -24,13 +24,12 @@ cd /amazonutils/amazon-redshift-utils/src/SimpleReplay
 if [[ "$SIMPLE_REPLAY_EXTRACT_OVERWRITE_S3_PATH" != "N/A" ]]; then
   aws s3 cp $SIMPLE_REPLAY_EXTRACT_OVERWRITE_S3_PATH replay.yaml
 fi
-
-sed -i "s#master_username: \"awsuser\"#master_username: \"$REDSHIFT_USER_NAME\"#g" extract.yaml
-sed -i "s#endpoint:port/dbname##g" extract.yaml
-sed -i "s#log_location: \"\"#log_location: \"$SIMPLE_REPLAY_LOG_LOCATION\"#g" extract.yaml
-sed -i "s#mybucketname/myworkload#$BUCKET_NAME/$EXTRACT_PREFIX/$WHAT_IF_TIMESTAMP#g" extract.yaml
-sed -i "s#start_time: \"\"#start_time: \"$SIMPLE_REPLAY_EXTRACT_START_TIME\"#g" extract.yaml
-sed -i "s#end_time: \"\"#end_time: \"$SIMPLE_REPLAY_EXTRACT_END_TIME\"#g" extract.yaml
+WORKLOAD_LOCATION="s3://${BUCKET_NAME}/${EXTRACT_PREFIX}/${WHAT_IF_TIMESTAMP}"
+sed -i "s#master_username: \".*\"#master_username: \"$REDSHIFT_USER_NAME\"#g" extract.yaml
+sed -i "s#log_location: \".*\"#log_location: \"$SIMPLE_REPLAY_LOG_LOCATION\"#g" extract.yaml
+sed -i "s#workload_location: \".*\"#workload_location: \"$WORKLOAD_LOCATION\"#g" extract.yaml
+sed -i "s#start_time: \".*\"#start_time: \"$SIMPLE_REPLAY_EXTRACT_START_TIME\"#g" extract.yaml
+sed -i "s#end_time: \".*\"#end_time: \"$SIMPLE_REPLAY_EXTRACT_END_TIME\"#g" extract.yaml
 aws s3 cp extract.yaml s3://$BUCKET_NAME/$SCRIPT_PREFIX/
 #
 # run extract process

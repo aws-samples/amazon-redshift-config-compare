@@ -124,7 +124,8 @@ where  partition_0 = (SELECT
                                  MAX(partition_0)
                              FROM
                                  redshift_config_comparison.comparison_stats)
-         AND (query_label like '{query_label_prefix}%' or  q.querytxt LIKE '%Replay source file%')
+         --AND (query_label like '{query_label_prefix}%' or  q.querytxt LIKE '%Replay source file%')
+         AND q.querytxt LIKE '%replay_start%'
 with no schema binding;
 
 

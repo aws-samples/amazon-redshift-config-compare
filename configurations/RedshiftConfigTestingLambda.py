@@ -24,6 +24,13 @@ def handler(event, context):
     try:
 
         client = boto3.client('redshift')
+        if user_config.get('DATABASE_NAME') == 'N/A' or user_config.get('DATABASE_NAME') is None :
+            database_name = system_config.get('DATABASE_NAME')
+            print("Database name from system_config")
+        else:
+            database_name = user_config.get('DATABASE_NAME')
+            print("Database name from user_config")
+        print("Database name {}". format(database_name))    
         if action == "initiate":
             what_if_timestamp = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime(time.time()))
             res = {'status': what_if_timestamp}
@@ -77,7 +84,7 @@ def handler(event, context):
                                          redshift_cluster_configuration.get('NODE_TYPE'),
                                          redshift_cluster_configuration.get('NUMBER_OF_NODES'),
                                          master_user_name=system_config.get('MASTER_USER_NAME'),
-                                         database_name=system_config.get('DATABASE_NAME'),
+                                         database_name=database_name,
                                          secrets_manager_arn=system_config.get('SECRETS_MANAGER_ARN'),
                                          port=int(system_config.get('PORT')),
                                          publicly_accessible=(system_config.get('PUBLICLY_ACCESSIBLE')=="true")
@@ -111,7 +118,7 @@ def handler(event, context):
                                                  cluster_identifier=cluster_identifier,
                                                  redshift_iam_role=system_config.get('REDSHIFT_IAM_ROLE'),
                                                  bucket_name=system_config.get('S3_BUCKET_NAME'),
-                                                 db=system_config.get('DATABASE_NAME'),
+                                                 db=database_name,
                                                  user=system_config.get('MASTER_USER_NAME'))}
         elif action == "run_redshift_performance_test":
             res = {
@@ -127,7 +134,7 @@ def handler(event, context):
                     job_queue=system_config.get('JOB_QUEUE'),
                     redshift_iam_role=system_config.get('REDSHIFT_IAM_ROLE'),
                     redshift_user_name=system_config.get('MASTER_USER_NAME'),
-                    db=system_config.get('DATABASE_NAME'),
+                    db=database_name,
                     disable_result_cache=system_config.get('DISABLE_RESULT_CACHE'),
                     default_output_limit=system_config.get('DEFAULT_OUTPUT_LIMIT'),
                     max_number_of_queries=system_config.get('MAX_NUMBER_OF_QUERIES'),
@@ -148,7 +155,7 @@ def handler(event, context):
                     bucket_name=system_config.get('S3_BUCKET_NAME'),
                     redshift_user_name=system_config.get('MASTER_USER_NAME'),
                     redshift_iam_role=system_config.get('REDSHIFT_IAM_ROLE'),
-                    db=system_config.get('DATABASE_NAME'),
+                    db=database_name,
                     extract_prefix=system_config.get('EXTRACT_PREFIX'),
                     replay_prefix=system_config.get('REPLAY_PREFIX'),
                     script_prefix=system_config.get('SCRIPT_PREFIX'),
@@ -163,7 +170,7 @@ def handler(event, context):
                                                      cluster_identifier=cluster_identifier,
                                                      redshift_iam_role=system_config.get('REDSHIFT_IAM_ROLE'),
                                                      bucket_name=system_config.get('S3_BUCKET_NAME'),
-                                                     db=system_config.get('DATABASE_NAME'),
+                                                     db=database_name,
                                                      user=system_config.get('MASTER_USER_NAME'),
                                                      run_type='sync',
                                                      what_if_timestamp=what_if_timestamp,
@@ -184,7 +191,7 @@ def handler(event, context):
                     cluster_identifier=cluster_identifier,
                     redshift_iam_role=system_config.get('REDSHIFT_IAM_ROLE'),
                     bucket_name=system_config.get('S3_BUCKET_NAME'),
-                    db=system_config.get('DATABASE_NAME'),
+                    db=database_name,
                     user=system_config.get('MASTER_USER_NAME'),
                     what_if_timestamp=what_if_timestamp,
                     raw_comparison_results_s3_path=system_config.get('RAW_COMPARISON_RESULTS_S3_PATH'),
@@ -298,7 +305,7 @@ def get_cluster_identifier(client, config, redshift_configurations, cluster_iden
         cluster_suffix = cluster_suffix.replace(".", "-")
     else:
         cluster_suffix = redshift_configurations.get('USER_FRIENDLY_NAME_SUFFIX')
-    return (cluster_identifier_prefix + "-" + cluster_suffix)[0:63]
+    return (cluster_identifier_prefix + "-" + cluster_suffix).lower()[0:63]
 
 
 def update_wlm_config(client, cluster_identifier, wlm_config_s3_path):

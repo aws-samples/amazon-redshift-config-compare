@@ -12,9 +12,10 @@ echo "workload_location: $WORKLOAD_LOCATION"
 echo "cluster_endpoint: $CLUSTER_ENDPOINT"
 echo "cluster_identifier: $CLUSTER_IDENTIFIER"
 echo "snapshot_account_id: $SNAPSHOT_ACCOUNT_ID"
-
 account_id=`aws sts get-caller-identity --query Account --output text`
 echo "account_id: $account_id"
+TARGET_CLUSTER_REGION=$(echo $CLUSTER_ENDPOINT | cut -f3 -d'.')
+##region = os.environ['AWS_REGION']
 
 yum update -y
 yum -y install git
@@ -34,13 +35,15 @@ if [[ "$SIMPLE_REPLAY_OVERWRITE_S3_PATH" != "N/A" ]]; then
   aws s3 cp $SIMPLE_REPLAY_OVERWRITE_S3_PATH replay.yaml
 fi
 
-sed -i "s#master_username: \"\"#master_username: \"$REDSHIFT_USER_NAME\"#g" replay.yaml
+sed -i "s#master_username: \".*\"#master_username: \"$REDSHIFT_USER_NAME\"#g" replay.yaml
 sed -i "s#execute_unload_statements: \"false\"#execute_unload_statements: \"true\"#g" replay.yaml
-sed -i "s#unload_iam_role: \"\"#unload_iam_role: \"$REDSHIFT_IAM_ROLE\"#g" replay.yaml
-sed -i "s#target_cluster_system_table_unload_iam_role: \"\"#target_cluster_system_table_unload_iam_role: \"$REDSHIFT_IAM_ROLE\"#g" replay.yaml
-sed -i "s#workload_location: \"\"#workload_location: \"$WORKLOAD_LOCATION\"#g" replay.yaml
-sed -i "s#target_cluster_endpoint: \"\"#target_cluster_endpoint: \"$CLUSTER_ENDPOINT\"#g"  replay.yaml
-sed -i "s#replay_output: \"\"#replay_output: \"s3://$BUCKET_NAME/$REPLAY_PREFIX/$WHAT_IF_TIMESTAMP/$CLUSTER_IDENTIFIER\"#g" replay.yaml
+sed -i "s#unload_iam_role: \".*\"#unload_iam_role: \"$REDSHIFT_IAM_ROLE\"#g" replay.yaml
+sed -i "s#target_cluster_system_table_unload_iam_role: \".*\"#target_cluster_system_table_unload_iam_role: \"$REDSHIFT_IAM_ROLE\"#g" replay.yaml
+
+sed -i "s#workload_location: \".*\"#workload_location: \"$WORKLOAD_LOCATION\"#g" replay.yaml
+sed -i "s#target_cluster_endpoint: \".*\"#target_cluster_endpoint: \"$CLUSTER_ENDPOINT\"#g" replay.yaml
+sed -i "s#replay_output: \".*\"#replay_output: \"s3://$BUCKET_NAME/$REPLAY_PREFIX/$WHAT_IF_TIMESTAMP/$CLUSTER_IDENTIFIER\"#g" replay.yaml
+sed -i "s#target_cluster_region: \".*\"#target_cluster_region: \"$TARGET_CLUSTER_REGION\"#g" replay.yaml
 
 
 if [[ "$account_id" == "$SNAPSHOT_ACCOUNT_ID" ]]; then
