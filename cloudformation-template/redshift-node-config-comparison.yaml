@@ -344,6 +344,7 @@ Resources:
               - redshift:resizeCluster
               - redshift:createCluster
               - redshift:GetClusterCredentials
+              - redshift:RebootCluster
             Resource:
               - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:cluster:${ClusterIdentifierPrefix}*"
               - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:dbname:${ClusterIdentifierPrefix}*/*"
@@ -902,3 +903,34 @@ Resources:
       target_folder_s3_path: !Sub
         - s3://${RedshiftConfigTestingBucket}/${ScriptPrefix}
         - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix]}
+  LakeFormationPermissionGlueCrawler:
+    Type: AWS::LakeFormation::Permissions
+    DependsOn:
+      - GlueDatabase 
+      - IamRoleGlueCrawler
+    Properties:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: !GetAtt IamRoleGlueCrawler.Arn
+      Permissions:
+        - ALL
+      Resource:
+        DatabaseResource:
+          Name: !FindInMap [ Glue, Database, Name]
+        DataLocationResource:
+          S3Resource: !Join ['', ['s3://', !Ref RedshiftConfigTestingBucket, '/'] ]
+
+  LakeFormationPermissionRedshiftRole:
+    Type: AWS::LakeFormation::Permissions
+    DependsOn: 
+      - RedshiftIAMRole
+      - GlueDatabase
+    Properties:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: !GetAtt RedshiftIAMRole.Arn
+      Permissions:
+        - SELECT
+      Resource:
+        TableResource:
+          DatabaseName: !FindInMap [ Glue, Database, Name]
+          TableWildcard: {}
+     
