@@ -59,7 +59,7 @@ You need to provide a configuration JSON file to use this solution. Below are th
 | SIMPLE\_REPLAY\_EXTRACT\_OVERWRITE\_S3\_PATH | N/A,Amazon S3 URI | If using simple-replay and you may like to use a custom extract.yaml file, please input its S3 URI |
 | SIMPLE\_REPLAY\_OVERWRITE\_S3\_PATH | N/A,Amazon S3 URI | If using simple-replay and you may like to use a custom replay.yaml file, please input its S3 URI |
 | AUTO\_PAUSE | true,false | Input true if you may like to automatically pause all except first Amazon Redshift clusters created for this testing |
-| DATABASE\_NAME | N/A,Redshift database name | Input Amazon Redshift database name to replay your past workload|
+| DATABASE\_NAME | N/A,Redshift database name | Specify the primary database name of your Redshift cluster. If you’re using Simple Replay, provide the database name for which you want to replay the workload. Amazon Redshift automatically creates a default database named dev, which may not be your primary database|
 | CONFIGURATIONS | JSON Array with parameters NODE\_TYPE, NUMBER\_OF\_NODES, WLM\_CONFIG\_S3\_PATH | Input a JSON Array mentioning your Amazon Redshift cluster configurations, for which you may like to perform this testing. Below are the parameters for this: |
 |  |  |  |
 | NODE\_TYPE | ra3.xlplus, ra3.4xlarge, ra3.16xlarge, dc2.large, dc2.8xlarge, ds2.xlarge, ds2.8xlarge | Input Amazon Redshift Cluster Node Type for which, you would like to run this testing. |
