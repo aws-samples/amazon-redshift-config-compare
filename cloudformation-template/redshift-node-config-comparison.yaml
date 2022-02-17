@@ -352,7 +352,6 @@ Resources:
               - !Sub "arn:aws:redshift:${AWS::Region}:${AWS::AccountId}:parametergroup:${ClusterIdentifierPrefix}*"
           - Effect: Allow
             Action:
-              - iam:PassRole
               - ec2:Describe*
               - redshift:restoreFromClusterSnapshot
               - redshift:describeClusterSnapshots
@@ -529,6 +528,7 @@ Resources:
 
   RedshiftConfigTestingLambdaIamRole:
     Type: AWS::IAM::Role
+    DependsOn: RedshiftIAMRole
     Properties:
       AssumeRolePolicyDocument:
         Statement:
@@ -558,6 +558,11 @@ Resources:
                   - iam:CreateServiceLinkedRole
                 Resource:
                   - !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/redshift.amazonaws.com/AWSServiceRoleForRedshift"
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !GetAtt RedshiftIAMRole.Arn
               - Effect: Allow
                 Action:
                   - secretsmanager:GetResourcePolicy
