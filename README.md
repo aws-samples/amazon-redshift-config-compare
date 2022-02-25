@@ -20,7 +20,7 @@ You need to store this file in an existing Amazon S3 bucket and then use [this A
 
 ## Prerequisites
 
-This solution uses [AWS CloudFormation](https://aws.amazon.com/cloudformation/) to automatically provision all the required resources in your AWS accounts. For more information, see [Getting started with AWS CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/GettingStarted.html).
+This solution uses [AWS CloudFormation](https://aws.amazon.com/cloudformation/) to automatically provision all the required resources in your AWS accounts. It uses AWS Lake Formation to manage access on the AWS Glue catalog which stores the performance comparison stats. If you haven't used AWS Lakeformation before , you need to add yourself as Data Lake Administrator, please follow the instructions here on [Setting up AWS Lake Formation](https://docs.aws.amazon.com/lake-formation/latest/dg/getting-started-setup.html#create-data-lake-admin). For more information, see [Getting started with AWS CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/GettingStarted.html).
 
 If you are already running Amazon Redshift workload in production, you may like to use this solution to replay your past workload leveraging [Amazon Redshift Simple Replay Utility](https://github.com/awslabs/amazon-redshift-utils/tree/master/src/SimpleReplay). As a prerequisite to use simple replay utility, you need to enable [audit logging](https://docs.aws.amazon.com/redshift/latest/mgmt/db-auditing.html#db-auditing-enable-logging) and [user-activity logging](https://docs.aws.amazon.com/redshift/latest/mgmt/db-auditing.html#db-auditing-user-activity-log) in your Amazon Redshift cluster.
 
