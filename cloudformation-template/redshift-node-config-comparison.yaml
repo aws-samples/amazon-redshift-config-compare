@@ -40,6 +40,13 @@ Parameters:
   SubnetId:
     Description: Primary Subnet ID where redshift clusters and AWS Batch compute instances will be created
     Type: AWS::EC2::Subnet::Id
+  UseAWSLakeFormationForGlueCatalog:
+    Description: Use AWS Lake Formation to manage access for Glue catalog [Select Yes if AWS Lake Formation is enabled for the account]
+    Type: String
+    Default: "No"
+    AllowedValues:
+      - "Yes"
+      - "No"
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -55,6 +62,7 @@ Metadata:
           - VPC
           - SubnetId
           - GrantS3ReadOnlyAccessToRedshift
+          - UseAWSLakeFormationForGlueCatalog
 Conditions:
   GrantS3ReadOnlyAccessToRedshift:
     !Equals
@@ -67,6 +75,10 @@ Conditions:
           - Ref: PreExistingS3BucketToGrantRedshiftAccess
   EncryptedSourceCluster:
     !Not [!Equals [!Ref SourceRedshiftClusterKMSKeyARN, "N/A"]]
+  UseAWSLakeFormationForGlueCatalog:
+    !Equals
+    - !Ref UseAWSLakeFormationForGlueCatalog
+    - "Yes"
 
 Mappings:
   Redshift: # static values related to the redshift cluster. they are also stored in system_config.json file
@@ -910,6 +922,7 @@ Resources:
         - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix]}
   LakeFormationPermissionGlueCrawler:
     Type: AWS::LakeFormation::Permissions
+    Condition: UseAWSLakeFormationForGlueCatalog
     DependsOn:
       - GlueDatabase 
       - IamRoleGlueCrawler
@@ -926,6 +939,7 @@ Resources:
 
   LakeFormationPermissionRedshiftRole:
     Type: AWS::LakeFormation::Permissions
+    Condition: UseAWSLakeFormationForGlueCatalog
     DependsOn: 
       - RedshiftIAMRole
       - GlueDatabase
