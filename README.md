@@ -126,7 +126,6 @@ Once the configuration JSON file is saved in an Amazon S3 bucket, you may use [t
 | ClusterIdentifierPrefix | Prefix of Amazon Redshift cluster identifiers | Input a valid string like rs, to be used as prefix of your Amazon Redshift cluster identifiers, created by this solution |
 | PreExistingS3BucketToGrantRedshiftAccess | N/A,Amazon S3 URI | If using Redshift Simple Replay, please input Redshift Audit Logging Bucket Name here so that it can grant appropriate permissions to the AWS Resources. You may also add an existing Amazon S3 bucket in same AWS Region, which can be accessed by Redshift. Input N/A if not applicable |
 | SourceRedshiftClusterKMSKeyARN | N/A,Amazon S3 URI |  [AWS Key Management Service (KMS) ](https://aws.amazon.com/kms/)Key ARN (Amazon Resource Name) if your source Redshift cluster is encrypted (available on the stack Outputs tab). You need to run extract and replay in the same account, if your source cluster is encrypted.
- |
 | OnPremisesCIDR | CIDR Notation |  The IP range (CIDR notation) for your existing infrastructure to access the target and replica clusters from a SQL client. If unsure, enter your corporate desktop&#39;s CIDR address. For instance, if your desktop&#39;s IP address is 10.156.87.45, enter10.156.87.45/32.
  |
 | VPC | N/A,Amazon S3 URI | An existing [Amazon Virtual Private Cloud](https://aws.amazon.com/vpc/) (Amazon VPC) where you want to deploy the clusters and EC2 instances. |
