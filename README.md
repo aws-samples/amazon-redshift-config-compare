@@ -131,6 +131,8 @@ Once the configuration JSON file is saved in an Amazon S3 bucket, you may use [t
  |
 | VPC | N/A,Amazon S3 URI | An existing [Amazon Virtual Private Cloud](https://aws.amazon.com/vpc/) (Amazon VPC) where you want to deploy the clusters and EC2 instances. |
 | SubnetId | N/A,Amazon S3 URI | If using simple-replay in this testing to replay your past workload, input the start time of that workload in ISO-8601 format (e.g. 2021-01-26T21:41:16+00:00) |
+| UseAWSLakeFormationForGlueCatalog | No,Yes | Default value is No ,Select Yes if AWS Lake Formation is enabled for the account and manages access for Glue catalog|
+
 
 ## Orchestration with AWS Step Functions State Machine
 
