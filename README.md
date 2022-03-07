@@ -128,8 +128,8 @@ Once the configuration JSON file is saved in an Amazon S3 bucket, you may use [t
 | GrantS3ReadOnlyAccessToRedshift | Yes,No | If you’re using Simple Replay in the same AWS account as the source Amazon Redshift cluster, enter Yes for this parameter, which grants AmazonS3ReadOnlyAccess to the new Amazon Redshift clusters to replay copy statements within the account. Otherwise, enter No so you can’t replay copy statements if running on a different AWS account without manually configuring it.
 | SourceRedshiftClusterKMSKeyARN | N/A,Amazon S3 URI |  [AWS Key Management Service (KMS) ](https://aws.amazon.com/kms/)Key ARN (Amazon Resource Name) if your source Redshift cluster is encrypted (available on the stack Outputs tab). You need to run extract and replay in the same account, if your source cluster is encrypted.
 | OnPremisesCIDR | CIDR Notation |  The IP range (CIDR notation) for your existing infrastructure to access the target and replica clusters from a SQL client. If unsure, enter your corporate desktop&#39;s CIDR address. For instance, if your desktop&#39;s IP address is 10.156.87.45, enter10.156.87.45/32.
-| VPC | N/A,Amazon S3 URI | An existing [Amazon Virtual Private Cloud](https://aws.amazon.com/vpc/) (Amazon VPC) where you want to deploy the clusters and EC2 instances.
-| SubnetId | N/A,Amazon S3 URI | If using simple-replay in this testing to replay your past workload, input the start time of that workload in ISO-8601 format (e.g. 2021-01-26T21:41:16+00:00)
+| VPC | VPC ID	| An existing [Amazon Virtual Private Cloud](https://aws.amazon.com/vpc/) (Amazon VPC) where you want to deploy the clusters and EC2 instances.
+| SubnetId | Subnet ID| An existing subnet within the VPC in which you deploy the Amazon Redshift clusters and AWS Batch compute environment.
 | UseAWSLakeFormationForGlueCatalog | No,Yes | Default value is No ,Select Yes if AWS Lake Formation is enabled for the account and manages access for Glue catalog
 
 
