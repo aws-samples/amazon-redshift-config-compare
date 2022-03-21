@@ -3,7 +3,7 @@ Description: 'Amazon Redshift What If Analysis'
 
 Parameters:
   ConfigJsonS3Path:
-    Description: S3 location uri for configuration json file. Please note, This automation would grant full access on your config file's S3 bucket.
+    Description: S3 location URI for configuration json file. Please note, this automation would grant full access on your config file's S3 bucket.
     Type: String
     Default: s3://your-node-config-compare-bucket/test-cases/user_config.json
   ClusterIdentifierPrefix:
@@ -15,7 +15,7 @@ Parameters:
     Type: String
     Default: 'your-redshift-audit-logging-bucket-or-any-bucket'
   GrantS3ReadOnlyAccessToRedshift:
-    Description: Do you want to grant AmazonS3ReadOnlyAccess to the redshift clusters to facilitate replaying copy commands? [Applicable for same account copy statements only if running extract and replay in the same AWS account]
+    Description: Do you want to grant AmazonS3ReadOnlyAccess to the Redshift clusters to facilitate replaying copy commands? [Applicable for same account copy statements only if running extract and replay in the same AWS account]
     Type: String
     Default: "Yes"
     AllowedValues:
@@ -38,7 +38,7 @@ Parameters:
     Description: "VPC where all resources would be created"
     Type: AWS::EC2::VPC::Id
   SubnetId:
-    Description: Primary Subnet ID where redshift clusters and AWS Batch compute instances will be created
+    Description: Primary Subnet ID where Redshift clusters and AWS Batch compute instances will be created
     Type: AWS::EC2::Subnet::Id
   UseAWSLakeFormationForGlueCatalog:
     Description: Use AWS Lake Formation to manage access for Glue catalog [Select Yes if AWS Lake Formation is enabled for the account]
