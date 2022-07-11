@@ -16,6 +16,7 @@
 	"SIMPLE_REPLAY_OVERWRITE_S3_PATH":"N/A",
 
   "AUTO_PAUSE": true,
+  "DATABASE_NAME": "database_name"
 
 	"CONFIGURATIONS": [
 		{
