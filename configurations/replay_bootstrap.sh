@@ -36,9 +36,14 @@ if [[ "$SIMPLE_REPLAY_OVERWRITE_S3_PATH" != "N/A" ]]; then
 fi
 
 sed -i "s#master_username: \".*\"#master_username: \"$REDSHIFT_USER_NAME\"#g" replay.yaml
-sed -i "s#execute_unload_statements: \"false\"#execute_unload_statements: \"true\"#g" replay.yaml
-sed -i "s#unload_iam_role: \".*\"#unload_iam_role: \"$REDSHIFT_IAM_ROLE\"#g" replay.yaml
-sed -i "s#target_cluster_system_table_unload_iam_role: \".*\"#target_cluster_system_table_unload_iam_role: \"$REDSHIFT_IAM_ROLE\"#g" replay.yaml
+
+## start - commented to avoid running any UNLOAD commands as part of replay and unload of system tables ##
+
+#sed -i "s#execute_unload_statements: \"false\"#execute_unload_statements: \"true\"#g" replay.yaml
+#sed -i "s#unload_iam_role: \".*\"#unload_iam_role: \"$REDSHIFT_IAM_ROLE\"#g" replay.yaml
+#sed -i "s#target_cluster_system_table_unload_iam_role: \".*\"#target_cluster_system_table_unload_iam_role: \"$REDSHIFT_IAM_ROLE\"#g" replay.yaml
+
+## end - commented to avoid running any UNLOAD commands as part of replay and unload of system tables ##
 
 sed -i "s#workload_location: \".*\"#workload_location: \"$WORKLOAD_LOCATION\"#g" replay.yaml
 sed -i "s#target_cluster_endpoint: \".*\"#target_cluster_endpoint: \"$CLUSTER_ENDPOINT\"#g" replay.yaml
