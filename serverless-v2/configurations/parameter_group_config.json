@@ -1,0 +1,119 @@
+{
+	"Parameters": [{
+		"ParameterName": "auto_analyze",
+		"ParameterValue": "true",
+		"Description": "Use auto analyze",
+		"Source": "user",
+		"DataType": "boolean",
+		"AllowedValues": "true,false",
+		"ApplyType": "static",
+		"IsModifiable": true
+	}, {
+		"ParameterName": "datestyle",
+		"ParameterValue": "ISO, MDY",
+		"Description": "Sets the display format for date and time values.",
+		"Source": "engine-default",
+		"DataType": "string",
+		"ApplyType": "static",
+		"IsModifiable": true
+	}, {
+		"ParameterName": "enable_user_activity_logging",
+		"ParameterValue": "true",
+		"Description": "parameter for audit logging purpose",
+		"Source": "user",
+		"DataType": "boolean",
+		"AllowedValues": "true,false",
+		"ApplyType": "static",
+		"IsModifiable": true
+	}, {
+		"ParameterName": "extra_float_digits",
+		"ParameterValue": "0",
+		"Description": "Sets the number of digits displayed for floating-point values",
+		"Source": "engine-default",
+		"DataType": "integer",
+		"AllowedValues": "-15-2",
+		"ApplyType": "static",
+		"IsModifiable": true
+	}, {
+		"ParameterName": "max_concurrency_scaling_clusters",
+		"ParameterValue": "1",
+		"Description": "The maximum concurrency scaling clusters can be used.",
+		"Source": "engine-default",
+		"DataType": "integer",
+		"AllowedValues": "0-10",
+		"ApplyType": "static",
+		"IsModifiable": true
+	}, {
+		"ParameterName": "max_cursor_result_set_size",
+		"ParameterValue": "default",
+		"Description": "Sets the max cursor result set size",
+		"Source": "engine-default",
+		"DataType": "integer",
+		"AllowedValues": "0-14400000",
+		"ApplyType": "static",
+		"IsModifiable": true
+	}, {
+		"ParameterName": "query_group",
+		"ParameterValue": "default",
+		"Description": "This parameter applies a user-defined label to a group of queries that are run during the same session..",
+		"Source": "engine-default",
+		"DataType": "string",
+		"ApplyType": "static",
+		"IsModifiable": true
+	}, {
+		"ParameterName": "require_ssl",
+		"ParameterValue": "true",
+		"Description": "require ssl for all databaseconnections",
+		"Source": "user",
+		"DataType": "boolean",
+		"AllowedValues": "true,false",
+		"ApplyType": "static",
+		"IsModifiable": true
+	}, {
+		"ParameterName": "search_path",
+		"ParameterValue": "$user, public",
+		"Description": "Sets the schema search order for names that are not schema-qualified.",
+		"Source": "engine-default",
+		"DataType": "string",
+		"ApplyType": "static",
+		"IsModifiable": true
+	}, {
+		"ParameterName": "statement_timeout",
+		"ParameterValue": "86400000",
+		"Description": "Aborts any statement that takes over the specified number of milliseconds.",
+		"Source": "user",
+		"DataType": "integer",
+		"AllowedValues": "0,100-2147483647",
+		"ApplyType": "static",
+		"IsModifiable": true
+	}, {
+		"ParameterName": "use_fips_ssl",
+		"ParameterValue": "false",
+		"Description": "Use fips ssl library",
+		"Source": "engine-default",
+		"DataType": "boolean",
+		"AllowedValues": "true,false",
+		"ApplyType": "static",
+		"IsModifiable": true
+	}, {
+		"ParameterName": "wlm_json_configuration",
+		"ParameterValue": "[ { \"query_group\" : [ ],\"query_group_wild_card\" : 0,\"user_group\" : [ ],\"user_group_wild_card\" : 0,\"concurrency_scaling\" : \"off\",\"rules\" : [ {  \"rule_name\" : \"DiskSpilling\",  \"predicate\" : [ { \"metric_name\" : \"query_temp_blocks_to_disk\", \"operator\" : \">\", \"value\" : 100000  } ], \"action\" : \"log\"}, {  \"rule_name\" : \"QueryRunningMoreThan30min\",  \"predicate\" : [ { \"metric_name\" : \"query_execution_time\", \"operator\" : \">\", \"value\" : 1800 } ],  \"action\" : \"log\"} ],\"priority\" : \"normal\",\"queue_type\" : \"auto\",\"auto_wlm\" : true }, {\"short_query_queue\" : true } ]",
+		"Description": "wlm json configuration",
+		"Source": "user",
+		"DataType": "string",
+		"ApplyType": "static",
+		"IsModifiable": true
+	}],
+	"ResponseMetadata": {
+		"RequestId": "fed328c9-52c8-4bba-a255-71b8c5cddded",
+		"HTTPStatusCode": 200,
+		"HTTPHeaders": {
+			"x-amzn-requestid": "fed328c9-52c8-4bba-a255-71b8c5cddded",
+			"content-type": "text/xml",
+			"content-length": "6168",
+			"vary": "accept-encoding",
+			"date": "Wed, 31 Mar 2021 20:29:02 GMT"
+		},
+		"RetryAttempts": 0
+	}
+}
