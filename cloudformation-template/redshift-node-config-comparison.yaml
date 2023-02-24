@@ -5,15 +5,15 @@ Parameters:
   ConfigJsonS3Path:
     Description: S3 location URI for configuration json file. Please note, this automation would grant full access on your config file's S3 bucket.
     Type: String
-    Default: s3://your-node-config-compare-bucket/test-cases/user_config.json
+    Default: s3://cwolfe-redshift-config-test-delete-me/test-cases/user_config.json
   ClusterIdentifierPrefix:
     Description: Redshift cluster identifier prefix
     Type: String
-    Default: rs
+    Default: delete-me
   PreExistingS3BucketToGrantRedshiftAccess:
     Description: The existing Amazon S3 bucket in same AWS Region, which can be accessed by Redshift. If using Redshift Simple Replay, please input Redshift Audit Logging Bucket Name here
     Type: String
-    Default: 'your-redshift-audit-logging-bucket-or-any-bucket'
+    Default: 'cwolfe-redshift-config-test-delete-me'
   GrantS3ReadOnlyAccessToRedshift:
     Description: Do you want to grant AmazonS3ReadOnlyAccess to the Redshift clusters to facilitate replaying copy commands? [Applicable for same account copy statements only if running extract and replay in the same AWS account]
     Type: String
@@ -21,6 +21,10 @@ Parameters:
     AllowedValues:
       - "Yes"
       - "No"
+  UserS3Bucket:
+    Description: The bucket a user can specify to store their own python code and scripts
+    Type: String
+    Default: 'cwolfe-redshift-config-test-delete-me'
   SourceRedshiftClusterKMSKeyARN:
     Description: KMS key ARN for the source redshift cluster If using encrypted snapshots
     Type: String
@@ -114,7 +118,8 @@ Mappings:
       PopulateComparisonResultsScript: 'populate_comparison_results.sql'
       ConfigTestingLambdaScript: 'RedshiftConfigTestingLambda.py.zip'
       ConfigTestingStepFunctionScript: 'RedshiftConfigTestingStepFunction.json'
-      ExternalPublicBucket: 'redshift-simple-replay-ra3'
+      # Adding custom bucket to load my own configurations
+      ExternalPublicBucket: 'cwolfe-redshift-config-test-delete-me'
     Pricing:
       Uri: 'https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonRedshift/current/index.csv'
       File: 'pricing/redshift_pricing.csv'
@@ -924,7 +929,7 @@ Resources:
     Type: AWS::LakeFormation::Permissions
     Condition: UseAWSLakeFormationForGlueCatalog
     DependsOn:
-      - GlueDatabase 
+      - GlueDatabase
       - IamRoleGlueCrawler
     Properties:
       DataLakePrincipal:
@@ -940,7 +945,7 @@ Resources:
   LakeFormationPermissionRedshiftRole:
     Type: AWS::LakeFormation::Permissions
     Condition: UseAWSLakeFormationForGlueCatalog
-    DependsOn: 
+    DependsOn:
       - RedshiftIAMRole
       - GlueDatabase
     Properties:
@@ -952,4 +957,4 @@ Resources:
         TableResource:
           DatabaseName: !FindInMap [ Glue, Database, Name]
           TableWildcard: {}
-     
+

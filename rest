@@ -1,0 +1,17 @@
+{
+    "errorMessage": "An error occurred (ClusterSnapshotNotFound) when calling the DescribeClusterSnapshots operation: Snapshot n/a not found.",
+    "errorType": "ClusterSnapshotNotFoundFault",
+    "stackTrace": [
+        "  File \"/var/task/RedshiftConfigTestingLambda.py\", line 76, in handler\n    'status': create_cluster(client,\n",
+        "  File \"/var/task/RedshiftConfigTestingLambda.py\", line 436, in create_cluster\n    source_node_type, source_number_of_nodes = get_source_cluster_config(client, snapshot_id)\n",
+        "  File \"/var/task/RedshiftConfigTestingLambda.py\", line 455, in get_source_cluster_config\n    resp = client.describe_cluster_snapshots(SnapshotIdentifier=snapshot_id)\n",
+        "  File \"/var/runtime/botocore/client.py\", line 530, in _api_call\n    return self._make_api_call(operation_name, kwargs)\n",
+        "  File \"/var/runtime/botocore/client.py\", line 960, in _make_api_call\n    raise error_class(parsed_response, operation_name)\n"
+    ]
+}
+
+10057  aws cloudformation create-stack --template-url https: //cwolfe-redshift-config-test-delete-me.s3.us-west-2.amazonaws.com/cloudformation-template/redshift-node-config-comparison.yaml --stack-name redshift-comparison-tool-004 --capabilities CAPABILITY_IAM
+
+❯ aws s3 cp ./cloudformation-template/redshift-node-config-comparison.yaml s3: //cwolfe-redshift-config-test-delete-me/cloudformation-template/redshift-node-config-comparison.yaml
+upload: cloudformation-template/redshift-node-config-comparison.yaml to s3: //cwolfe-redshift-config-test-delete-me/cloudformation-template/redshift-node-config-comparison.yaml
+❯ aws s3 sync test-cases/ s3: //cwolfe-redshift-config-test-delete-me/test-cases

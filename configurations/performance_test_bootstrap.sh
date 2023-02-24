@@ -9,8 +9,13 @@
 
 set -eu
 
-yum install -y awscli python3
-pip3 install boto3 psycopg2-binary pandas sqlalchemy
+yum install -y awscli python3 python3-pip
+
+python3 -m venv python3-virtualenv
+
+source python3-virtualenv/bin/activate
+
+pip3 install boto3==1.28.62 psycopg2-binary==2.9.9 pandas==2.1.1 sqlalchemy-redshift==0.8.14
 
 aws s3 cp "$PYTHON_SCRIPT" ./script.py
 
@@ -18,3 +23,4 @@ aws s3 cp "$PYTHON_SCRIPT" ./script.py
 # `$SQL_SCRIPT_S3_PATH`, `$REDSHIFT_CLUSTER_ENDPOINT`,
 # `$REDSHIFT_IAM_ROLE`, `$BUCKET_NAME`, `$REDSHIFT_USER_NAME`
 python3 ./script.py
+

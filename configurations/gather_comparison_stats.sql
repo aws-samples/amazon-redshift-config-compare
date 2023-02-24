@@ -95,7 +95,7 @@ drop view if exists public.redshift_config_comparison_raw cascade;
 create or replace view public.redshift_config_comparison_raw as
 SELECT
 partition_1 cluster_identifier,
-       SHA2(split_part(querytxt,'}',2),256) as query_hash,
+       query_hash,
        round( exec_time   / ( 1000 * 1000 ) ,2) exec_time_seconds,
        round( total_query_time   / ( 1000 * 1000 ) ,2) total_query_time_seconds,
        round( compile_time   / ( 1000 * 1000 ) ,2) compile_time_seconds,

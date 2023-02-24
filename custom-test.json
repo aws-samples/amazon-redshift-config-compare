@@ -1,9 +1,9 @@
 {
 	"SNAPSHOT_ID": "N/A",
 	"SNAPSHOT_ACCOUNT_ID": "N/A",
-	"PARAMETER_GROUP_CONFIG_S3_PATH": "s3://cwolfe-redshift-config-test-delete-me/test-cases/parameter_group_config.json",
+	"PARAMETER_GROUP_CONFIG_S3_PATH": "s3://cwolfe-redshift-config-test-delete-me/test-cases/ddl.sql",
 	"DDL_AND_COPY_SCRIPT_S3_PATH": "s3://cwolfe-redshift-config-test-delete-me/test-cases/ddl.sql",
-	"SQL_SCRIPT_S3_PATH": "s3://cwolfe-redshift-config-test-delete-me/test-cases/test-simple.sql",
+	"SQL_SCRIPT_S3_PATH": "s3://cwolfe-redshift-config-test-delete-me/test-cases/test_queries.sql",
 	"NUMBER_OF_PARALLEL_SESSIONS_LIST": "1",
 	"SIMPLE_REPLAY_LOG_LOCATION": "N/A",
 	"SIMPLE_REPLAY_EXTRACT_START_TIME": "N/A",
