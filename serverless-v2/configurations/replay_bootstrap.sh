@@ -14,6 +14,8 @@ echo "cluster_identifier: $CLUSTER_IDENTIFIER"
 echo "snapshot_account_id: $SNAPSHOT_ACCOUNT_ID"
 account_id=`aws sts get-caller-identity --query Account --output text`
 echo "account_id: $account_id"
+source_tag="NodeConfig"
+echo "source_tag: $source_tag"
 echo "endpoint_type: $ENDPOINT_TYPE"
 TARGET_CLUSTER_REGION=$(echo $CLUSTER_ENDPOINT | cut -f3 -d'.')
 ##region = os.environ['AWS_REGION']
@@ -35,6 +37,7 @@ if [[ "$SIMPLE_REPLAY_OVERWRITE_S3_PATH" != "N/A" ]]; then
   aws s3 cp $SIMPLE_REPLAY_OVERWRITE_S3_PATH replay.yaml
 fi
 
+sed -i "s#source_tag: \".*\"#source_tag: \"$source_tag\"#g" replay.yaml
 sed -i "s#master_username: \".*\"#master_username: \"$REDSHIFT_USER_NAME\"#g" replay.yaml
 #sed -i "s#execute_unload_statements: \"false\"#execute_unload_statements: \"true\"#g" replay.yaml
 #sed -i "s#unload_iam_role: \".*\"#unload_iam_role: \"$REDSHIFT_IAM_ROLE\"#g" replay.yaml
