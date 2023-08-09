@@ -9,8 +9,8 @@
 
 set -eu
 
-yum install -y awscli python3
-pip3 install boto3 psycopg2-binary pandas sqlalchemy
+yum install -y python3 python3-pip
+pip3 install --ignore-installed boto3 psycopg2-binary pandas sqlalchemy
 
 aws s3 cp "$PYTHON_SCRIPT" ./script.py
 
