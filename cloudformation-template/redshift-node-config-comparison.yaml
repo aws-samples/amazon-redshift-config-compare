@@ -21,10 +21,7 @@ Parameters:
     AllowedValues:
       - "Yes"
       - "No"
-  UserS3Bucket:
-    Description: The bucket a user can specify to store their own python code and scripts
-    Type: String
-    Default: 'cwolfe-redshift-config-test-delete-me'
+
   SourceRedshiftClusterKMSKeyARN:
     Description: KMS key ARN for the source redshift cluster If using encrypted snapshots
     Type: String
