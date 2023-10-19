@@ -39,13 +39,13 @@ Parameters:
   RedshiftSubnetId:
     Description: Primary Subnet ID where Redshift provisioned cluster will be created.For serverless you should choose at least three subnets, across three Availability Zones.
     Type: List<AWS::EC2::Subnet::Id>
-  AWSBatchSubnetId:  
+  AWSBatchSubnetId:
     Description: Primary Subnet ID for AWS Batch to create containers
     Type: AWS::EC2::Subnet::Id
   AWSECRContainerImage:
     Description: Provide private ECR repo image url if using ECR VPC endpoint
     Type: String
-    Default: "N/A"     
+    Default: "N/A"
   UseAWSLakeFormationForGlueCatalog:
     Description: Use AWS Lake Formation to manage access for Glue catalog [Select Yes if AWS Lake Formation is enabled for the account]
     Type: String
@@ -96,7 +96,7 @@ Conditions:
   NotificationEmail:
     #!Not [!Equals [!Ref AWSECRContainerImage, "N/A"]]
     !Not [!Equals [!Ref NotificationEmail, "N/A"]]
-    
+
 
 Mappings:
   Redshift: # static values related to the redshift cluster. they are also stored in system_config.json file
@@ -304,7 +304,7 @@ Resources:
     Type: 'AWS::Redshift::ClusterSubnetGroup'
     Properties:
       Description: Cluster subnet group
-      SubnetIds: 
+      SubnetIds:
        # - !Split [',', !Join [',', !Ref RedshiftProvisionedSubnetId]]
        #- !Join [",", [!Select [0, !Ref RedshiftProvisionedSubnetId], !Select [1, !Ref RedshiftProvisionedSubnetId]]]
         - !Select [0, !Ref RedshiftSubnetId]
@@ -327,7 +327,8 @@ Resources:
             Resource:
               - !Sub "arn:aws:s3:::${RedshiftConfigTestingBucket}"
               - !Sub "arn:aws:s3:::${RedshiftConfigTestingBucket}/*"
-              - !Sub
+              - !Sub "arn:aws:s3:::${cwolfe-redshift-config-test-delete-me}/*"
+              - !Sub "arn:aws:s3:::${cwolfe-redshift-config-test-delete-me}"
                 - arn:aws:s3:::${RedshiftWhatIfConfigJsonObject}
                 - {RedshiftWhatIfConfigJsonObject: !Select [1, !Split ["//", !Ref ConfigJsonS3Path]]}
 
@@ -697,9 +698,9 @@ Resources:
             - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix],SystemConfig: !FindInMap [ ConfigTesting, S3, SystemConfig]}
           USER_CONFIG_JSON_S3_PATH: !Ref ConfigJsonS3Path
           CLUSTER_IDENTIFIER_PREFIX: !Ref ClusterIdentifierPrefix
-      Layers: 
+      Layers:
         - !Ref LambdaLayer
-    
+
 
   RedshiftConfigTestingStepFunctionIamRole:
     Type: AWS::IAM::Role
@@ -822,7 +823,7 @@ Resources:
             - {ScriptPrefix: !FindInMap [ ConfigTesting, S3, ScriptPrefix],SystemConfig: !FindInMap [ ConfigTesting, S3, SystemConfig]}
           COMPARISON_STATS_S3_PATH: !Sub
             - s3://${RedshiftConfigTestingBucket}/${DataPrefix}/
-            - {DataPrefix: !FindInMap [ ConfigTesting, S3, DataPrefix]} 
+            - {DataPrefix: !FindInMap [ ConfigTesting, S3, DataPrefix]}
           RAW_COMPARISON_RESULTS_S3_PATH: !Sub
             - s3://${RedshiftConfigTestingBucket}/${DataPrefix}/${RawResultsLocation}
             - {DataPrefix: !FindInMap [ ConfigTesting, S3, DataPrefix],RawResultsLocation: !FindInMap [ ConfigTesting, S3, RawResultsLocation]}
@@ -1013,7 +1014,7 @@ Resources:
     Type: AWS::LakeFormation::Permissions
     Condition: UseAWSLakeFormationForGlueCatalog
     DependsOn:
-      - GlueDatabase 
+      - GlueDatabase
       - IamRoleGlueCrawler
     Properties:
       DataLakePrincipal:
@@ -1029,7 +1030,7 @@ Resources:
   LakeFormationPermissionRedshiftRole:
     Type: AWS::LakeFormation::Permissions
     Condition: UseAWSLakeFormationForGlueCatalog
-    DependsOn: 
+    DependsOn:
       - RedshiftIAMRole
       - GlueDatabase
     Properties:
